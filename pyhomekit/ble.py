@@ -154,64 +154,6 @@ class HapAccessoryLock(HapAccessory):
         pass
 
 
-class HapBleOpCodes:
-    """HAP Opcode Descriptions."""
-
-    Characteristic_Signature_Read: int = 0x01
-    Characteristic_Write: int = 0x02
-    Characteristic_Read: int = 0x03
-    Characteristic_Timed_Write: int = 0x04
-    Characteristic_Execute_Write: int = 0x05
-    Service_Signature_Read: int = 0x06
-
-
-class HapBleStatusCodes:
-    """HAP Status code definitions and descriptions."""
-
-    Success = 0x00
-    Unsupported_PDU = 0x01
-    Max_Procedures = 0x02
-    Insufficient_Authorization = 0x03
-    Invalid_Instance_ID = 0x04
-    Insufficient_Authentication = 0x05
-    Invalid_Request = 0x06
-
-    @staticmethod
-    def lookup(status_code: int) -> str:
-        """Return status code string."""
-        return {
-            0: 'Success',
-            1: 'Unsupported_PDU',
-            2: 'Max_Procedures',
-            3: 'Insufficient Authorization',
-            4: 'Invalid Instance ID',
-            5: 'Insufficient Authentication',
-            6: 'Invalid Request'
-        }[status_code]
-
-    @staticmethod
-    def message(status_code: int) -> str:
-        """Return status code message."""
-        return {
-            0x00:
-            'The request was successful.',
-            0x01:
-            'The request failed as the HAP PDU was not recognized or supported.',
-            0x02:
-            'The request failed as the accessory has reached the the limit on the '
-            'simultaneous procedures it can handle.',
-            0x03:
-            'Characteristic requires additional authorization data.',
-            0x04:
-            "The HAP Request's characteristic Instance id did not match the addressed "
-            "characteristic's instance id.",
-            0x05:
-            'Characteristic access required a secure session to be established.',
-            0x06:
-            'Accessory was not able to perform the requested operation.'
-        }[status_code]
-
-
 class HapBlePduRequestHeader:
     """HAP-BLE PDU Header."""
 
