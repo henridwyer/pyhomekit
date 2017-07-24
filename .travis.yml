@@ -1,14 +1,16 @@
 language: python
-
 python:
-  - "3.6"
-
+- '3.6'
 env:
-  - TOXENV=py36
-
+- TOXENV=py36
 install: pip install -r requirements.txt
-
 script: pytest
-
 notifications:
   email: false
+deploy:
+  provider: pypi
+  user: "gardianz"
+  password:
+    secure: EZEzvkdaQq8gnqOR9AnBRvcQ5rY2AwabglXrkvkoyKRH6fgNv8oBbDL6eX4P6XW6GoJKCk+7vgRoMd8mPRrHQJiYZ5b4caUCA+2uDnO/Vw9IBAlqluENv9JVTtBiSpwbd7AKJhBX83fZE2ZcBPnq8eFXjuu5ZljYwJ/xlV6XfKp3BmilQO2eAYLKjeh2xXpKH35eKi3wHlKc8sxCj6DpAQKhoTjByso5IriPp2YjCzzTgxiyJP9La534IY0RfOJOaMPWJCwCLf/NhUibP6tsE4wJ07RuCbHGGsuHi1eK3grwZtSWGanwRQvdKpaAAPBNrSn2T4DiGUdoF/e5UFb8H3YWhLey/BIysdqxd/HBTH/wNEOuTjF+DnR733HYVWzQno46Cnc3Uq5YQq4lR997AgQnYfvd0WiI+w0eqlr8NNrD4l5YFkHk7E3XuXGU+KZVSiDePNlHP4lc7kbKD+SlBLHCKo5wZZTlEK2kXrm/wKbZU43Tp1eCtKkWC0hRe/vDGKgFdUizEjedYNfviGSFSd0nHmb8IhFoX3yKz9jpDTTJ5kddoYJli7M3zi+8pA4f9CXyE2kpiepApC65MwVbEA6Ov6jtJ74YQCkcsfruisH3IsgNiHuBkOi+6W5EriDBc2HQOlmHqpNSW0JWFEYrYcM5FyPYMxklcPIG82qkkxM=
+  on:
+    tags: true
