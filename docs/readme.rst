@@ -1,5 +1,5 @@
 PyHomeKit - Python interface to control HomeKit accessories.
-=======================
+============================================================
 
 :Author: `Henri Dwyer <https://henri.io>`_
 
