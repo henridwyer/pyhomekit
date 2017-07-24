@@ -3,15 +3,12 @@
 https://github.com/henridwyer/pyhomekit
 """
 
+from os import path
+from codecs import open
+from setuptools import setup, find_packages
 
 PACKAGE = "pyhomekit"
-VERSION = "0.1"
-
-
-
-from setuptools import setup, find_packages
-from codecs import open
-from os import path
+VERSION = "0.0.1"
 
 here = path.abspath(path.dirname(__file__))
 
@@ -21,9 +18,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name=PACKAGE,
-
     version=VERSION,
-
     description='Python interface to control HomeKit accessories.',
     long_description=long_description,
 
@@ -45,17 +40,9 @@ setup(
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: MIT License',
-
         'Programming Language :: Python :: 3.6',
     ],
-
     keywords='homekit bluetooth home',
-
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-
-    install_requires=['bluepy'],
-
-    extras_require={
-        'dev': ['py.test', 'mypy']
-    },
-)
+    install_requires=['bluepy', 'tenacity'],
+    extras_require={'dev': ['py.test', 'mypy']}, )

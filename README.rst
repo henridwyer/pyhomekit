@@ -1,10 +1,10 @@
 PyHomeKit - Python interface to control HomeKit accessories.
 ============================================================
 
-:Author: `Henri Dwyer <https://henri.io>`_
+:Author: `Henri Dwyer`_
 
-.. image:: https://api.travis-ci.org/pycurl/pycurl.png
-	   :target: https://travis-ci.org/pycurl/pycurl
+.. image:: https://api.travis-ci.org/henridwyer/pyhomekit.png
+	   :target: https://travis-ci.org/henridwyer/pyhomekit
 
 
 PyHomeKit let's you control HomeKit accessories using a pythonic interface. Supports both BLE and HTTP devices.
