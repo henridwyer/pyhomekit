@@ -1,7 +1,7 @@
 PyHomeKit - Python interface to control HomeKit accessories.
 ============================================================
 
-:Author: `Henri Dwyer`_
+:Author: Henri Dwyer
 
 .. image:: https://api.travis-ci.org/henridwyer/pyhomekit.png
 	   :target: https://travis-ci.org/henridwyer/pyhomekit
@@ -13,6 +13,7 @@ Requirements
 ------------
 
 - Python 3.6.
+
 
 Usage
 ------------------
@@ -32,6 +33,3 @@ What is it good for?
 --------------------
 
 Controlling HomeKit accessories using python.
-
-----
-

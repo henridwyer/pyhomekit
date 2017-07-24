@@ -8,7 +8,7 @@ from codecs import open
 from setuptools import setup, find_packages
 
 PACKAGE = "pyhomekit"
-VERSION = "0.0.1"
+VERSION = "0.0.1.2"
 
 here = path.abspath(path.dirname(__file__))
 
@@ -23,7 +23,7 @@ setup(
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/pypa/sampleproject',
+    url='https://github.com/henridwyer/pyhomekit',
 
     # Author details
     author='Henri Dwyer',
@@ -34,7 +34,7 @@ setup(
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'Topic :: Home Automation',
 
