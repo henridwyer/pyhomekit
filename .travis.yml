@@ -4,7 +4,10 @@ python:
 env:
 - TOXENV=py36
 install: pip install -r requirements.txt
-script: pytest
+script:
+  - make test-quality
+  - make test-readme
+  - make test
 notifications:
   email: false
 deploy:

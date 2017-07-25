@@ -60,12 +60,13 @@ class HapCharacteristic:
         # Generate a transaction
         header = HapBlePduRequestHeader(
             cid_sid=self.cid,
-            op_code=OpCodes.HAP_Characteristic_Signature_Read, )
+            op_code=constants.HapBleOpCodes.Characteristic_Signature_Read, )
         self.characteristic.write(header.data, withResponse=True)
         result = self.characteristic.read()
         return result, header.transation_id
 
-    def signature_parse(self, response: bytes, tid: int):
+    @staticmethod
+    def signature_parse(response: bytes, tid: int) -> None:
         """Parse the signature read response and set attributes."""
 
         # Check response validity
@@ -78,17 +79,19 @@ class HapCharacteristic:
             raise ValueError("Invalid transaction ID {}, expected {}.".format(
                 response[1], tid), response)
         status = response[2]
-        if status != StatusCodes.Success:
-            raise HAPException(status_code=status)
+        if status != constants.HapBleStatusCodes.Success:
+            raise HapBleError(status_code=status)
         body_length = struct.unpack('<H', response[3:5])[0]
         if len(response[5:]) != body_length:
             raise ValueError("Invalid body length {}, expected {}.".format(
                 control_field, body_length), response)
 
         # Parse remaining data
-        for body_type, length, bytes_ in self.iterate_tvl(response[5:]):
-            name = PDUBody.lookup(body_type)
-            converter = PDUBody.converter(name)
+        for body_type, length, bytes_ in utils.iterate_tvl(response[5:]):
+            if len(bytes_) != length:
+                raise HapBleError(name="Invalid response length")
+            name = constants.HAP_param_type_code_to_name[body_type]
+            converter = constants.HAP_param_name_to_converter[name]
             setattr(name, converter(bytes_))
 
 
@@ -258,8 +261,8 @@ class HapBleError(Exception):
             self.message = message
         else:
             self.status_code = status_code
-            self.name = HapBleStatusCodes.lookup(status_code)
-            self.message = HapBleStatusCodes.message(status_code)
+            self.name = constants.status_code_to_name[status_code]
+            self.message = constants.status_code_to_message[status_code]
 
         super(HapBleError, self).__init__(name, message, *args)
 
