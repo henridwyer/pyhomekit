@@ -4,3 +4,5 @@ pytest
 pylint
 flake8
 mypy
+docutils
+Sphinx
