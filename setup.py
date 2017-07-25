@@ -4,16 +4,16 @@ https://github.com/henridwyer/pyhomekit
 """
 
 from os import path
-from codecs import open
+from codecs import open as open_
 from setuptools import setup, find_packages
 
 PACKAGE = "pyhomekit"
-VERSION = "0.0.1.2"
+VERSION = "0.0.1.4"
 
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+with open_(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
