@@ -3,7 +3,7 @@
 import random
 import struct
 
-from typing import Tuple
+from typing import Tuple, List, Any
 
 import bluepy.btle
 
@@ -18,13 +18,13 @@ class HapCharacteristic:
     properties that determine how the value of the characteristic can be accessed.
     """
 
-    def __init__(self, characteristic: bluepy.btle.Characteristic=None):
+    def __init__(self, characteristic: bluepy.btle.Characteristic) -> None:
         self.characteristic = characteristic
         self.peripheral = characteristic.peripheral
-        self.cid_descriptor = None
-        self.cid = None
+        self.cid: bytes
 
-    def setup(self, retry=True, max_attempts=2, wait_time=1) -> None:
+    def setup(self, retry: bool=True, max_attempts: int=2,
+              wait_time: int=1) -> None:
         """Performs a signature read and reads all characteristic metadata."""
         if retry:
             self.setup_tenacity(max_attempts=max_attempts, wait_time=wait_time)
@@ -36,8 +36,10 @@ class HapCharacteristic:
         reconnect_callback = utils.reconnect_callback_factory(
             peripheral=self.peripheral)
 
-        retry = utils.reconnect_tenacity_retry(max_attempts, wait_time,
-                                               reconnect_callback)
+        retry = utils.reconnect_tenacity_retry(
+            reconnect_callback,
+            max_attempts,
+            wait_time, )
 
         retry_functions = [self.read_cid, self.signature_read]
 
@@ -46,13 +48,12 @@ class HapCharacteristic:
             name = func.__name__
             setattr(self, name, retry(getattr(self, func.__name__)))
 
-    def read_cid(self):
+    def read_cid(self) -> None:
         """Reads the Characteristic ID, if required."""
-        if self.cid is None and self.cid_descriptor is None:
-            self.cid_descriptor = self.characteristic.getDescriptors(
-                constants.characteristic_ID_descriptor_UUID)[0]
         if self.cid is None:
-            self.cid = self.cid_descriptor.read()
+            cid_descriptor = self.characteristic.getDescriptors(
+                constants.characteristic_ID_descriptor_UUID)[0]
+            self.cid = cid_descriptor.read()
 
     def signature_read(self) -> Tuple[bytes, int]:
         """Reads the signature of the HAP characteristic."""
@@ -65,8 +66,7 @@ class HapCharacteristic:
         result = self.characteristic.read()
         return result, header.transation_id
 
-    @staticmethod
-    def signature_parse(response: bytes, tid: int) -> None:
+    def signature_parse(self, response: bytes, tid: int) -> None:
         """Parse the signature read response and set attributes."""
 
         # Check response validity
@@ -92,68 +92,68 @@ class HapCharacteristic:
                 raise HapBleError(name="Invalid response length")
             name = constants.HAP_param_type_code_to_name[body_type]
             converter = constants.HAP_param_name_to_converter[name]
-            setattr(name, converter(bytes_))
+            setattr(self, name, converter(bytes_))
 
 
 class HapAccessory:
     """Accessory"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def pair(self):
+    def pair(self) -> None:
         pass
 
-    def pair_verify(self):
+    def pair_verify(self) -> None:
         pass
 
-    def save_key(self):
+    def save_key(self) -> None:
         pass
 
-    def discover_hap_characteristics(self):
+    def discover_hap_characteristics(self) -> List[HapCharacteristic]:
         pass
 
-    def get_characteristic(self, name: str, uuid: str):
+    def get_characteristic(self, name: str, uuid: str) -> HapCharacteristic:
         pass
 
 
 class HapAccessoryLock(HapAccessory):
 
     # Required
-    def lock_current_state(self):
+    def lock_current_state(self) -> int:
         pass
 
     # Required
-    def lock_target_state(self):
+    def lock_target_state(self) -> None:
         pass
 
     # Required for lock management
-    def lock_control_point(self):
+    def lock_control_point(self) -> Any:
         pass
 
-    def version(self):
+    def version(self) -> str:
         pass
 
     # Optional for lock management
-    def logs(self):
+    def logs(self) -> str:
         pass
 
-    def audio_feedback(self):
+    def audio_feedback(self) -> bytes:
         pass
 
-    def lock_management_auto_security_timeout(self):
+    def lock_management_auto_security_timeout(self) -> None:
         pass
 
-    def administrator_only_access(self):
+    def administrator_only_access(self) -> None:
         pass
 
-    def lock_last_known_action(self):
+    def lock_last_known_action(self) -> int:
         pass
 
-    def current_door_state(self):
+    def current_door_state(self) -> int:
         pass
 
-    def motion_detected(self):
+    def motion_detected(self) -> bool:
         pass
 
 

@@ -4,7 +4,7 @@ init:
 test-quality:
 	flake8 --max-line-length=100 pyhomekit
 	pylint --disable=C0103,C0111,C0326,C0330,W0232,R0903,R0904,R0913,E0401 pyhomekit
-	mypy --ignore-missing-imports --strict-optional --disallow-untyped-defs --show-column-numbers
+	mypy --ignore-missing-imports --strict-optional --disallow-untyped-defs --show-column-numbers pyhomekit
 
 test-readme:
 	python3 setup.py check --restructuredtext --strict && ([ $$? -eq 0 ] && echo "README.rst and HISTORY.rst ok") || echo "Invalid markup in README.rst or HISTORY.rst!"

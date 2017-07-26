@@ -1,7 +1,10 @@
 """HAP Constants"""
 
+from typing import Dict, Any
+
 from .utils import (to_bool, to_float, to_int32, to_uint16, to_uint32,
-                    to_uint64, to_uint8, to_utf8, to_uuid, parse_format)
+                    to_uint64, to_uint8, to_utf8, to_uuid, parse_format,
+                    identity)
 
 characteristic_ID_descriptor_UUID = 'DC46F0FE-81D2-4616-B5D9-6ABDD796939A'
 
@@ -26,27 +29,27 @@ HAP_param_type_code_to_name = {
     18: 'HAP_Valid_Values_Range_Descriptor'
 }
 
-HAP_param_name_to_converter = {
-    "Value": 1,
-    "Additional_Authorization_Data": 2,
-    "Origin_local_vs_remote": 3,
+HAP_param_name_to_converter: Dict[str, Any] = {
+    "Value": identity,
+    "Additional_Authorization_Data": identity,
+    "Origin_local_vs_remote": identity,
     "Characteristic_Type": to_uuid,
     "Characteristic_Instance_ID": to_uuid,
     # DC46F0FE-81D2-4616-B5D9-6ABDD796939A
     "Service_Type": to_uuid,
     "Service_Instance_ID": to_uint16,
     # E604E95D-A759-4817-87D3-AA005083A0D1
-    "TTL": 8,
-    "Return_Response": 9,
+    "TTL": identity,
+    "Return_Response": identity,
     "HAP_Characteristic_Properties_Descriptor": to_uint16,
     "GATT_User_Description_Descriptor": to_utf8,
     "GATT_Presentation_Format_Descriptor": parse_format,
-    "GATT_Valid_Range": 13,
-    "HAP_Step_Value_Descriptor": 14,
+    "GATT_Valid_Range": identity,
+    "HAP_Step_Value_Descriptor": identity,
     "HAP_Service_Properties": to_uint16,
-    "HAP_Linked_Services": 16,
-    "HAP_Valid_Values_Descriptor": 17,
-    "HAP_Valid_Values_Range_Descriptor": 18
+    "HAP_Linked_Services": identity,
+    "HAP_Valid_Values_Descriptor": identity,
+    "HAP_Valid_Values_Range_Descriptor": identity
 }
 
 format_code_to_name = {

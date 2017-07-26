@@ -111,3 +111,8 @@ def parse_format(b: bytes) -> Tuple[int, int]:
         raise ValueError("Unexpected presentation format: {}".format(b))
 
     return (format_, unit)
+
+
+def identity(x: Any) -> Any:
+    """Identity"""
+    return x
