@@ -9,27 +9,54 @@ PyHomeKit - Python interface to control HomeKit accessories.
 
 PyHomeKit let's you control HomeKit accessories using a pythonic interface. Supports both BLE and HTTP devices.
 
-Requirements
+Warning
+-------
+
+PyHomeKit is a work in progress. Many features are not yet implemented.
+
+Installation
 ------------
 
-- Python 3.6.
+.. code-block:: shell
 
+    pip install pyhomekit
+
+For development, clone the repository and:
+
+.. code-block:: shell
+
+    pip install -r requirements.txt
+    pip install -e .
+
+Then you can build the documentation: 
+
+.. code-block:: shell
+
+    make doc
+
+And run the tests:
+
+.. code-block:: shell
+
+    make tests
+
+
+Requirements
+############
+
+- Python 3.6
+- bluepy python package for interacting with BLE HomeKit devices.
 
 Usage
 ------------------
 
-
 .. code-block:: python
 
-    # content of test_sample.py
-    def inc(x):
-        return x + 1
+    import pyhomekit
 
-    def test_answer():
-        assert inc(3) == 5
+    device_mac = "aa:aa:aa:aa:aa"
+    device = pyhomekit.ble.HapAccessory(mac=device_mac)
+    characteristics = device.discover_characteristics()
 
+    print(characteristics)
 
-What is it good for?
---------------------
-
-Controlling HomeKit accessories using python.

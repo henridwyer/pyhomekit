@@ -1,3 +1,7 @@
+all: init test-quality test-readme test
+
+tests: test-quality test-readnme tests
+
 init:
 	pip3 install -r requirements.txt
 
@@ -11,3 +15,9 @@ test-readme:
 
 test:
 	py.test
+
+doc:
+	cd docs && sphinx-apidoc -o source/ ../pyhomekit/
+	cd docs && make html
+
+.PHONY: all init test-quality test-readme test

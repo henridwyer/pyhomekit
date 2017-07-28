@@ -1,9 +1,6 @@
 pyhomekit package
 =================
 
-Submodules
-----------
-
 pyhomekit\.ble module
 ---------------------
 

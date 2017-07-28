@@ -111,6 +111,7 @@ class HapAccessory:
         pass
 
     def discover_hap_characteristics(self) -> List[HapCharacteristic]:
+        """Discovers all of the HAP Characteristics and performs a signature read on each one."""
         pass
 
     def get_characteristic(self, name: str, uuid: str) -> HapCharacteristic:

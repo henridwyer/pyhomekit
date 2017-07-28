@@ -34,8 +34,11 @@ sys.path.insert(0, os.path.abspath('..'))
 extensions = [
     'sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.intersphinx',
     'sphinx.ext.todo', 'sphinx.ext.coverage', 'sphinx.ext.imgmath',
-    'sphinx.ext.viewcode'
+    'sphinx.ext.viewcode', 'sphinx.ext.autosummary'
 ]
+
+autodoc_default_flags = ['members']
+autosummary_gerenerate = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -125,11 +128,11 @@ htmlhelp_basename = 'pyHomeKitdoc'
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
-    # 'papersize': 'letterpaper',
+    'papersize': 'a4paper',
 
     # The font size ('10pt', '11pt' or '12pt').
     #
-    # 'pointsize': '10pt',
+    'pointsize': '10pt',
 
     # Additional stuff for the LaTeX preamble.
     #
@@ -144,8 +147,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'pyHomeKit.tex', 'pyHomeKit Documentation', 'Henri Dwyer',
-     'manual'),
+    (master_doc, 'pyHomeKit.tex', 'pyHomeKit Documentation', author, 'manual'),
 ]
 
 # -- Options for manual page output ---------------------------------------
@@ -166,3 +168,5 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'https://docs.python.org/': None}
+
+autodoc_mock_imports = ["bluepy"]
