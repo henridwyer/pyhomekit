@@ -1,5 +1,8 @@
 tenacity
 bluepy
+requests
+libnacl
+srp
 pytest
 pylint
 flake8

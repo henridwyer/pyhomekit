@@ -101,7 +101,7 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -163,10 +163,10 @@ man_pages = [(master_doc, 'pyhomekit', 'pyHomeKit Documentation', [author], 1)]
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'pyHomeKit', 'pyHomeKit Documentation', author, 'pyHomeKit',
-     'One line description of project.', 'Miscellaneous'),
+     'HomeKit for Python', 'bluetooth'),
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+intersphinx_mapping = {'bluepy': {'https://ianharvey.github.io/bluepy-doc/')}
 
 autodoc_mock_imports = ["bluepy"]

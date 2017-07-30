@@ -17,6 +17,7 @@ test:
 	py.test
 
 doc:
+	rm -rf ./docs/_*
 	cd docs && sphinx-apidoc -o source/ ../pyhomekit/
 	cd docs && make html
 

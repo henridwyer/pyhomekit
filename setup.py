@@ -44,5 +44,7 @@ setup(
     ],
     keywords='homekit bluetooth home',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['bluepy', 'tenacity'],
-    extras_require={'dev': ['py.test', 'mypy']}, )
+    install_requires=['bluepy', 'tenacity', 'libnacl', 'srp'],
+    extras_require={
+        'dev': ['py.test', 'mypy', 'pylint', 'flake8', 'docutils', 'Sphinx']
+    }, )

@@ -1,6 +1,6 @@
 """Useful functions for pyHomeKit."""
 
-import struct
+from struct import unpack
 
 from typing import Callable, Any, Tuple, Iterator
 
@@ -61,37 +61,37 @@ def to_uuid(b: bytes) -> str:
 
 def to_bool(b: bytes) -> bool:
     """Convert to bytes to bool (little endian)."""
-    return struct.unpack('<?', b)[0]
+    return unpack('<?', b)[0]
 
 
 def to_float(b: bytes) -> int:
     """Convert to bytes to float (little endian)."""
-    return struct.unpack('<f', b)[0]
+    return unpack('<f', b)[0]
 
 
 def to_int32(b: bytes) -> int:
     """Convert to bytes to 32 bit signed int (little endian)."""
-    return struct.unpack('<i', b)[0]
+    return unpack('<i', b)[0]
 
 
 def to_uint64(b: bytes) -> int:
     """Convert to bytes to 64 bit unsigned int (little endian)."""
-    return struct.unpack('<Q', b)[0]
+    return unpack('<Q', b)[0]
 
 
 def to_uint32(b: bytes) -> int:
     """Convert to bytes to 32 bit unsigned int (little endian)."""
-    return struct.unpack('<I', b)[0]
+    return unpack('<I', b)[0]
 
 
 def to_uint16(b: bytes) -> int:
     """Convert to bytes to 16 bit unsigned short (little endian)."""
-    return struct.unpack('<H', b)[0]
+    return unpack('<H', b)[0]
 
 
 def to_uint8(b: bytes) -> int:
     """Convert to bytes to 8 bit unsigned short (little endian)."""
-    return struct.unpack('<B', b)[0]
+    return unpack('<B', b)[0]
 
 
 def to_utf8(b: bytes) -> str:
@@ -101,13 +101,13 @@ def to_utf8(b: bytes) -> str:
 
 def parse_format(b: bytes) -> Tuple[int, int]:
     """Parse the bluetooth characteristic presentation format to format and unit code"""
-    format_ = struct.unpack('<B', b[0:1])[0]
-    exponent = struct.unpack('<b', b[1:2])[0]  # Not used, should be 0
-    unit = struct.unpack('<H', b[2:4])[0]
-    namespace = struct.unpack('<b', b[4:5])[0]  # Not used, should be 1
-    description = struct.unpack('<H', b[5:])[0]  # Not used, should be 0
+    format_ = unpack('<B', b[0:1])[0]
+    exponent = unpack('<b', b[1:2])[0]  # Not used, should be 0
+    unit = unpack('<H', b[2:4])[0]
+    namespace = unpack('<b', b[4:5])[0]  # Not used, should be 1
+    description = unpack('<H', b[5:])[0]  # Not used, should be 0
 
-    if exponent != 0 or namespace != 1 or description != 1:
+    if exponent != 0 or namespace != 1 or description != 0:
         raise ValueError("Unexpected presentation format: {}".format(b))
 
     return (format_, unit)

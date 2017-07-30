@@ -3,7 +3,7 @@
 import random
 import struct
 
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Optional, Dict
 
 import bluepy.btle
 
@@ -21,15 +21,15 @@ class HapCharacteristic:
     def __init__(self, characteristic: bluepy.btle.Characteristic) -> None:
         self.characteristic = characteristic
         self.peripheral = characteristic.peripheral
-        self.cid: bytes
+        self._cid = None  # type: Optional[bytes]
+        self.hap_format_converter = utils.identity
+        self._signature = None  # type: Optional[Dict[str, Any]]
 
     def setup(self, retry: bool=True, max_attempts: int=2,
               wait_time: int=1) -> None:
         """Performs a signature read and reads all characteristic metadata."""
         if retry:
             self.setup_tenacity(max_attempts=max_attempts, wait_time=wait_time)
-
-        self.read_cid()
 
     def setup_tenacity(self, max_attempts: int, wait_time: int) -> None:
         """Adds automatic retrying to functions that need to read from device."""
@@ -41,21 +41,35 @@ class HapCharacteristic:
             max_attempts,
             wait_time, )
 
-        retry_functions = [self.read_cid, self.signature_read]
+        retry_functions = [self._read_cid, self._signature_read]
 
         for func in retry_functions:
-            print(func, func.__name__)
             name = func.__name__
             setattr(self, name, retry(getattr(self, func.__name__)))
 
-    def read_cid(self) -> None:
-        """Reads the Characteristic ID, if required."""
-        if self.cid is None:
-            cid_descriptor = self.characteristic.getDescriptors(
-                constants.characteristic_ID_descriptor_UUID)[0]
-            self.cid = cid_descriptor.read()
+    @property
+    def cid(self) -> bytes:
+        """Get the Characteristic ID, reading it from the device if required."""
+        if self._cid is None:
+            self._cid = self._read_cid()
+        return self._cid
 
-    def signature_read(self) -> Tuple[bytes, int]:
+    @property
+    def signature(self) -> Dict[str, Any]:
+        """Returns the signature, and adds the attributes."""
+        if self._signature is None:
+            signature_read_response, tid = self._signature_read()
+            self._signature = self._signature_parse(signature_read_response,
+                                                    tid)
+        return self._signature
+
+    def _read_cid(self) -> bytes:
+        """Read the Characteristic ID descriptor."""
+        cid_descriptor = self.characteristic.getDescriptors(
+            constants.characteristic_ID_descriptor_UUID)[0]
+        return cid_descriptor.read()
+
+    def _signature_read(self) -> Tuple[bytes, int]:
         """Reads the signature of the HAP characteristic."""
 
         # Generate a transaction
@@ -63,28 +77,28 @@ class HapCharacteristic:
             cid_sid=self.cid,
             op_code=constants.HapBleOpCodes.Characteristic_Signature_Read, )
         self.characteristic.write(header.data, withResponse=True)
-        result = self.characteristic.read()
-        return result, header.transation_id
+        response = self.characteristic.read()
+        return response, header.transation_id
 
-    def signature_parse(self, response: bytes, tid: int) -> None:
+    def _signature_parse(self, response: bytes, tid: int) -> Dict[str, Any]:
         """Parse the signature read response and set attributes."""
 
         # Check response validity
-        control_field = response[0]
-        if control_field != 2:
+        if response[0] != 2:  # control field
             raise ValueError(
-                "Invalid control field {}, expected 2.".format(control_field),
+                "Invalid control field {}, expected 2.".format(response[0]),
                 response)
         if response[1] != tid:
             raise ValueError("Invalid transaction ID {}, expected {}.".format(
                 response[1], tid), response)
-        status = response[2]
-        if status != constants.HapBleStatusCodes.Success:
-            raise HapBleError(status_code=status)
+        if response[2] != constants.HapBleStatusCodes.Success:  # status
+            raise HapBleError(status_code=response[2])
         body_length = struct.unpack('<H', response[3:5])[0]
         if len(response[5:]) != body_length:
             raise ValueError("Invalid body length {}, expected {}.".format(
-                control_field, body_length), response)
+                len(response[5:]), body_length), response)
+
+        attributes = {}
 
         # Parse remaining data
         for body_type, length, bytes_ in utils.iterate_tvl(response[5:]):
@@ -92,7 +106,39 @@ class HapCharacteristic:
                 raise HapBleError(name="Invalid response length")
             name = constants.HAP_param_type_code_to_name[body_type]
             converter = constants.HAP_param_name_to_converter[name]
-            setattr(self, name, converter(bytes_))
+
+            # Treat GATT_Presentation_Format_Descriptor specially
+            if name == 'GATT_Presentation_Format_Descriptor':
+                format_code, unit_code = converter(bytes_)
+                format_name = constants.format_code_to_name[format_code]
+                format_converter = constants.format_name_to_converter[
+                    format_name]
+                unit_name = constants.unit_code_to_name[unit_code]
+                new_attrs = {
+                    'HAP_Format': format_name,
+                    'HAP_Format_Converter': format_converter,
+                    'HAP_Unit': unit_name
+                }
+
+            # List of values received in the HAP Format
+            elif name == 'GATT_Valid_Range':
+                low, high = bytes_[:len(bytes_) // 2], bytes_[
+                    len(bytes_) // 2:]
+                new_attrs = {
+                    'min_value': self.hap_format_converter(low),
+                    'max_value': self.hap_format_converter(high)
+                }
+            elif name == 'HAP_Step_Value_Descriptor':
+                new_attrs = {name: self.hap_format_converter(bytes_)}
+            else:
+                new_attrs = {name: converter(bytes_)}
+
+            # Add new attributes
+            for key, val in new_attrs.items():
+                setattr(self, key.lower(), val)
+                attributes[key.lower()] = val
+
+        return attributes
 
 
 class HapAccessory:

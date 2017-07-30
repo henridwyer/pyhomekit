@@ -54,7 +54,7 @@ HAP_param_name_to_converter: Dict[str, Any] = {
 
 format_code_to_name = {
     0x01: 'bool',
-    0x04: 'unit8',
+    0x04: 'uint8',
     0x06: 'unit16',
     0x08: 'uint32',
     0x0A: 'uint64',
