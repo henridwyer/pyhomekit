@@ -94,6 +94,61 @@ unit_code_to_name = {
     10157: 'percentage'
 }
 
+pairing_tlv_value_to_name = {
+    0: 'kTLVType_Method',
+    1: 'kTLVType_Identifier',
+    2: 'kTLVType_Salt',
+    3: 'kTLVType_PublicKey',
+    4: 'kTLVType_Proof',
+    5: 'kTLVType_EncryptedData',
+    6: 'kTLVType_State',
+    7: 'kTLVType_Error',
+    8: 'kTLVType_RetryDelay',
+    9: 'kTLVType_Certificate',
+    10: 'kTLVType_Signature',
+    11: 'kTLVType_Permissions',
+    12: 'kTLVType_FragmentData',
+    13: 'kTLVType_FragmentLast',
+    255: 'kTLVType_Separator'
+}
+
+pairing_tlv_name_to_format = {
+    'kTLVType_Certificate': 'bytes',
+    'kTLVType_EncryptedData': 'bytes',
+    'kTLVType_Error': 'integer',
+    'kTLVType_FragmentData': 'bytes',
+    'kTLVType_FragmentLast': 'bytes',
+    'kTLVType_Identifier': 'UTF-8',
+    'kTLVType_Method': 'integer',
+    'kTLVType_Permissions': 'integer',
+    'kTLVType_Proof': 'bytes',
+    'kTLVType_PublicKey': 'bytes',
+    'kTLVType_RetryDelay': 'integer',
+    'kTLVType_Salt': 'bytes',
+    'kTLVType_Separator': 'null',
+    'kTLVType_Signature': 'bytes',
+    'kTLVType_State': 'integer'
+}
+
+
+class PairingTlvValues:
+    """Pairng service TLV Values."""
+    kTLVType_Method = 0x00
+    kTLVType_Identifier = 0x01
+    kTLVType_Salt = 0x02
+    kTLVType_PublicKey = 0x03
+    kTLVType_Proof = 0x04
+    kTLVType_EncryptedData = 0x05
+    kTLVType_State = 0x06
+    kTLVType_Error = 0x07
+    kTLVType_RetryDelay = 0x08
+    kTLVType_Certificate = 0x09
+    kTLVType_Signature = 0x0A
+    kTLVType_Permissions = 0x0B
+    kTLVType_FragmentData = 0x0C
+    kTLVType_FragmentLast = 0x0D
+    kTLVType_Separator = 0xFF
+
 
 class HapBleStatusCodes:
     """HAP Status code definitions and descriptions."""
