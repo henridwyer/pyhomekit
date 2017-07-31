@@ -1,13 +1,13 @@
-all: init test-quality test-readme test
+all: init tests
 
-tests: test-quality test-readnme tests
+tests: test-quality test-readme test
 
 init:
 	pip3 install -r requirements.txt
 
 test-quality:
 	flake8 --max-line-length=100 pyhomekit
-	pylint --disable=C0103,C0111,C0326,C0330,W0232,R0903,R0904,R0913,E0401 pyhomekit
+	pylint --disable=C0103,C0111,C0326,C0330,W0232,W0251,W0511,R0903,R0904,R0913,R0914,E0401 pyhomekit
 	mypy --ignore-missing-imports --strict-optional --disallow-untyped-defs --show-column-numbers pyhomekit
 
 test-readme:

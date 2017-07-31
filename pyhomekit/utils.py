@@ -2,7 +2,7 @@
 
 from struct import unpack
 
-from typing import Callable, Any, Tuple, Iterator
+from typing import Callable, Any, Tuple, Iterator  # NOQA pylint: disable=W0611
 
 import bluepy.btle
 import tenacity

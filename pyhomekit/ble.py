@@ -3,7 +3,7 @@
 import random
 from struct import pack, unpack
 
-from typing import Tuple, List, Any, Optional, Dict, Iterable
+from typing import Tuple, List, Any, Optional, Dict, Iterable  # NOQA pylint: disable=W0611
 
 import bluepy.btle
 

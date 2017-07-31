@@ -1,6 +1,6 @@
 """HAP Constants"""
 
-from typing import Dict, Any
+from typing import Dict, Any  # NOQA pylint: disable=W0611
 
 from .utils import (to_bool, to_float, to_int32, to_uint16, to_uint32,
                     to_uint64, to_uint8, to_utf8, to_uuid, parse_format,
@@ -29,7 +29,7 @@ HAP_param_type_code_to_name = {
     18: 'HAP_Valid_Values_Range_Descriptor'
 }
 
-HAP_param_name_to_converter: Dict[str, Any] = {
+HAP_param_name_to_converter = {
     "Value": identity,
     "Additional_Authorization_Data": identity,
     "Origin_local_vs_remote": identity,
@@ -50,7 +50,7 @@ HAP_param_name_to_converter: Dict[str, Any] = {
     "HAP_Linked_Services": identity,
     "HAP_Valid_Values_Descriptor": identity,
     "HAP_Valid_Values_Range_Descriptor": identity
-}
+}  # type: Dict[str, Any]
 
 format_code_to_name = {
     0x01: 'bool',
@@ -165,12 +165,12 @@ class HapBleStatusCodes:
 class HapBleOpCodes:
     """HAP Opcode Descriptions."""
 
-    Characteristic_Signature_Read: int = 0x01
-    Characteristic_Write: int = 0x02
-    Characteristic_Read: int = 0x03
-    Characteristic_Timed_Write: int = 0x04
-    Characteristic_Execute_Write: int = 0x05
-    Service_Signature_Read: int = 0x06
+    Characteristic_Signature_Read = 0x01
+    Characteristic_Write = 0x02
+    Characteristic_Read = 0x03
+    Characteristic_Timed_Write = 0x04
+    Characteristic_Execute_Write = 0x05
+    Service_Signature_Read = 0x06
 
 
 status_code_to_name = {

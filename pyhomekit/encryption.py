@@ -1,2 +1,1 @@
-"""Apple HomeKit encryption helper methods.""""
-
+"""Apple HomeKit encryption helper methods."""

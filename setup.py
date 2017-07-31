@@ -16,6 +16,8 @@ here = path.abspath(path.dirname(__file__))
 with open_(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
+install_requires = ['bluepy', 'libnacl', 'srp', 'tenacity']
+
 setup(
     name=PACKAGE,
     version=VERSION,
@@ -44,7 +46,7 @@ setup(
     ],
     keywords='homekit bluetooth home',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['bluepy', 'tenacity', 'libnacl', 'srp'],
+    install_requires=install_requires,
     extras_require={
-        'dev': ['py.test', 'mypy', 'pylint', 'flake8', 'docutils', 'Sphinx']
+        'dev': ['py.test', 'mypy', 'pylint', 'flake8', 'docutils', 'Sphinx'],
     }, )

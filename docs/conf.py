@@ -19,6 +19,7 @@
 #
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -167,6 +168,6 @@ texinfo_documents = [
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'bluepy': {'https://ianharvey.github.io/bluepy-doc/')}
+# intersphinx_mapping = {'bluepy': {'https://ianharvey.github.io/bluepy-doc/')}
 
-autodoc_mock_imports = ["bluepy"]
+autodoc_mock_imports = ["bluepy", "bluepy.btle"]

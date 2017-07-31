@@ -1,6 +1,14 @@
 pyhomekit package
 =================
 
+Module contents
+---------------
+
+.. automodule:: pyhomekit
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pyhomekit\.ble module
 ---------------------
 
@@ -21,15 +29,6 @@ pyhomekit\.utils module
 -----------------------
 
 .. automodule:: pyhomekit.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: pyhomekit
     :members:
     :undoc-members:
     :show-inheritance:
