@@ -12,7 +12,7 @@ from . import constants
 
 
 class HapBlePduRequestHeader:
-    """HAP-BLE PDU Header."""
+    """HAP-BLE PDU Request Header."""
 
     def __init__(self,
                  cid_sid: bytes,
@@ -20,7 +20,7 @@ class HapBlePduRequestHeader:
                  op_code: int=None,
                  continuation: bool=False,
                  transaction_id: int=None) -> None:
-        """HAP-BLE PDU Header.
+        """HAP-BLE PDU Request Header.
 
         Parameters
         ----------
@@ -74,14 +74,14 @@ class HapBlePduRequestHeader:
 
 
 class HapBlePduResponseHeader:
-    """HAP-BLE PDU Header."""
+    """HAP-BLE PDU Response Header."""
 
     def __init__(self,
                  continuation: bool=False,
                  response: bool=True,
                  transaction_id: int=None,
                  status_code: int=None) -> None:
-        """HAP-BLE PDU Header.
+        """HAP-BLE PDU Response Header.
 
         Parameters
         ----------
@@ -95,12 +95,8 @@ class HapBlePduResponseHeader:
         transaction_id
             Transaction Identifier
 
-        op_code
-            HAP Opcode field, which indicates the opcode for the HAP Request PDU.
-
-        cid_sid
-            Characteristic / Service Instance Identifier is the instance id
-            of the characteristic / service for a particular request.
+        status_code
+            HAP Status code for the request.
         """
         self.continuation = continuation
         self.response = response
@@ -212,9 +208,9 @@ class HapCharacteristic:
 
         self.signature  # read signature pylint: disable=W0104
 
-    def request(self, header: HapBlePduRequestHeader,
-                body: List[bytes]=None) -> None:
-        """Perform a HAP request."""
+    def _request(self, header: HapBlePduRequestHeader,
+                 body: List[bytes]=None) -> None:
+        """Perform a HAP read or write request."""
         if body is None:
             body = [b""]
         body_len = sum(len(b) for b in body)
@@ -230,34 +226,34 @@ class HapCharacteristic:
                 withResponse=True)
         else:
             start = 0
-            for end in range(max_len, body_len + 1 + max_len, step=max_len):
-                len_ = len(body_concat[start:end])
+            for start in range(0, body_len + 1, step=max_len):
+                len_ = len(body_concat[start:start + max_len])
                 self.characteristic.write(
-                    header.data + pack('<H', len_) + body_concat[start:end],
+                    header.data + pack('<H', len_) +
+                    body_concat[start:start + max_len],
                     withResponse=True)
-                start = end
 
-    def response(self, request_header: HapBlePduRequestHeader):
-        """"""
+    def read(self,
+             request_header: HapBlePduRequestHeader,
+             body: List[bytes]=None) -> Dict[str, Any]:
+        """Perform a HAP Characteristic read.
+
+        Fragmented read if required."""
+
+        self._request(request_header, body)
+
         response = self.characteristic.read()
-        response_header = HapBlePduResponseHeader.from_data(response)
 
-        # TODO: fragmented read
-
-        # Check response vailidity
-
-    def read(self, request_header: HapBlePduRequestHeader) -> bytes:
-        """Reads the value of the charateristic.
-
-        Performs a fragmented read if required."""
-        response = self.characteristic.read()
-        response_header = self._check_read_response(response, request_header)
+        response_header = self._check_read_response(
+            request_header=request_header, response=response)
 
         if response_header.continuation:
-            # fragmented
+            # TODO: fragmented read
             raise NotImplementedError("Fragmented read not yet supported")
-            pass
-        return response
+
+        response_parsed = self._parse_response(response)
+
+        return response_parsed
 
     def _setup_tenacity(self, max_attempts: int, wait_time: int) -> None:
         """Adds automatic retrying to functions that need to read from device."""
@@ -269,7 +265,7 @@ class HapCharacteristic:
             max_attempts,
             wait_time, )
 
-        retry_functions = [self._read_cid, self._signature_read]
+        retry_functions = [self._read_cid, self._request, self.read]
 
         for func in retry_functions:
             name = func.__name__
@@ -286,9 +282,11 @@ class HapCharacteristic:
     def signature(self) -> Dict[str, Any]:
         """Returns the signature, and adds the attributes."""
         if self._signature is None:
-            signature_read_response, tid = self._signature_read()
-            self._signature = self._signature_parse(signature_read_response,
-                                                    tid)
+            signature_read_header = HapBlePduRequestHeader(
+                cid_sid=self.cid,
+                op_code=constants.HapBleOpCodes.Characteristic_Signature_Read,
+            )
+            self._signature = self.read(signature_read_header)
         return self._signature
 
     def _read_cid(self) -> bytes:
@@ -296,17 +294,6 @@ class HapCharacteristic:
         cid_descriptor = self.characteristic.getDescriptors(
             constants.characteristic_ID_descriptor_UUID)[0]
         return cid_descriptor.read()
-
-    def _signature_read(self) -> Tuple[bytes, int]:
-        """Reads the signature of the HAP characteristic."""
-
-        # Generate a transaction
-        header = HapBlePduRequestHeader(
-            cid_sid=self.cid,
-            op_code=constants.HapBleOpCodes.Characteristic_Signature_Read, )
-        self.characteristic.write(header.data, withResponse=True)
-        response = self.characteristic.read()
-        return response, header.transaction_id
 
     @staticmethod
     def _check_read_response(request_header: HapBlePduRequestHeader,
@@ -334,18 +321,20 @@ class HapCharacteristic:
 
         return response_header
 
-    def _signature_parse(self, response: bytes, tid: int) -> Dict[str, Any]:
+    def _parse_response(self, response: bytes) -> Dict[str, Any]:
         """Parse the signature read response and set attributes."""
 
-        self._check_read_response(response, tid, expected_control_field=2)
-
-        # Parse data
         attributes = {}
         for body_type, length, bytes_ in utils.iterate_tvl(response[5:]):
             if len(bytes_) != length:
                 raise HapBleError(name="Invalid response length")
             name = constants.HAP_param_type_code_to_name[body_type]
-            converter = constants.HAP_param_name_to_converter[name]
+
+            if name in ('GATT_Valid_Range', 'HAP_Step_Value_Descriptor',
+                        'Value'):
+                converter = self.hap_format_converter
+            else:
+                converter = constants.HAP_param_name_to_converter[name]
 
             # Treat GATT_Presentation_Format_Descriptor specially
             if name == 'GATT_Presentation_Format_Descriptor':
@@ -365,11 +354,9 @@ class HapCharacteristic:
                 low, high = bytes_[:len(bytes_) // 2], bytes_[
                     len(bytes_) // 2:]
                 new_attrs = {
-                    'min_value': self.hap_format_converter(low),
-                    'max_value': self.hap_format_converter(high)
+                    'min_value': converter(low),
+                    'max_value': converter(high)
                 }
-            elif name == 'HAP_Step_Value_Descriptor':
-                new_attrs = {name: self.hap_format_converter(bytes_)}
             else:
                 new_attrs = {name: converter(bytes_)}
 
