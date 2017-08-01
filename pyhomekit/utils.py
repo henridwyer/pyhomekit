@@ -1,11 +1,11 @@
 """Useful functions for pyHomeKit."""
 
 from struct import unpack
+from typing import Any, Callable, Iterator, Tuple  # NOQA pylint: disable=W0611
 
-from typing import Callable, Any, Tuple, Iterator  # NOQA pylint: disable=W0611
+import tenacity
 
 import bluepy.btle
-import tenacity
 
 
 def reconnect_callback_factory(peripheral: bluepy.btle.Peripheral

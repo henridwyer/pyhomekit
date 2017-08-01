@@ -6,9 +6,9 @@ pyHomeKit's documentation
 .. toctree::
    :maxdepth: 2
 
-   Overview <readme_link>
+   Overview <readme>
    API Reference <source/modules.rst>
-   Change log <changelog_link>
+   Change log <changelog>
 
 
 Indices and tables

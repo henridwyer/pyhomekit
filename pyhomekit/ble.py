@@ -2,13 +2,11 @@
 
 import random
 from struct import pack, unpack
-
-from typing import Tuple, List, Any, Optional, Dict, Iterable  # NOQA pylint: disable=W0611
+from typing import (Any, Dict, Iterable, List, Optional, Tuple)  # NOQA pylint: disable=W0611
 
 import bluepy.btle
 
-from . import utils
-from . import constants
+from . import constants, utils
 
 
 class HapBlePduRequestHeader:
