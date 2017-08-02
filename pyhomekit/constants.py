@@ -7,6 +7,10 @@ from .utils import (to_bool, to_float, to_int32, to_uint16, to_uint32,
                     identity)
 
 characteristic_ID_descriptor_UUID = 'DC46F0FE-81D2-4616-B5D9-6ABDD796939A'
+pairing_service_UUID = "00000055-0000-1000-8000-0026BB765291"
+pair_setup_characteristic_UUID = "0000004C-0000-1000-8000-0026BB765291"
+pair_verify_characteristic_UUID = "0000004E-0000-1000-8000-0026BB765291"
+pairing_features_characteristic_UUID = "0000004F-0000-1000-8000-0026BB765291"
 
 HAP_param_type_code_to_name = {
     1: 'Value',
