@@ -231,6 +231,10 @@ class HapCharacteristic:
                     body_concat[start:start + max_len],
                     withResponse=True)
 
+    def _read(self) -> bytes:
+        """Read the value of the characteristic."""
+        return self.characteristic.read()
+
     def read(self,
              request_header: HapBlePduRequestHeader,
              body: List[bytes]=None) -> Dict[str, Any]:
@@ -240,7 +244,7 @@ class HapCharacteristic:
 
         self._request(request_header, body)
 
-        response = self.characteristic.read()
+        response = self._read()
 
         response_header = self._check_read_response(
             request_header=request_header, response=response)
@@ -263,7 +267,7 @@ class HapCharacteristic:
             max_attempts,
             wait_time, )
 
-        retry_functions = [self._read_cid, self._request, self.read]
+        retry_functions = [self._read_cid, self._request, self._read]
 
         for func in retry_functions:
             name = func.__name__
