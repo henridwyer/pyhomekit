@@ -11,26 +11,24 @@ import bluepy.btle
 logger = logging.getLogger(__name__)
 
 
-def reconnect_callback_factory(peripheral: bluepy.btle.Peripheral,
-                               wait_time: int=5,
-                               max_attempts: int=2
-                               ) -> Callable[[Callable[[Any], Any]], int]:
+def reconnect_callback_factory(
+        peripheral: bluepy.btle.Peripheral) -> Callable[[Any, int], None]:
     """Factory for creating tenacity before callbacks to reconnect to a peripheral."""
 
-    @tenacity.retry(
-        retry=tenacity.retry_if_exception_type(bluepy.btle.BTLEException),
-        stop=tenacity.wait_fixed(wait_time),
-        wait=tenacity.stop_after_attempt(max_attempts))
     # pylint: disable=W0613
-    def reconnect(func: Callable[[Any], Any], trial_number: int) -> None:
+    def reconnect(func: Any, trial_number: int) -> None:
         """Attempt to reconnect."""
-        logger.debug("Attempting to reconnect to device.")
-        peripheral.connect(peripheral.addr, peripheral.addrType)
+        try:
+            logger.debug("Attempting to reconnect to device.")
+            peripheral.connect(peripheral.addr, peripheral.addrType)
+        except bluepy.btle.BTLEException:
+            logger.debug(
+                "Error while attempting to reconnect to device", exc_info=True)
 
     return reconnect
 
 
-def reconnect_tenacity_retry(reconnect_callback: Callable[[Any], Any],
+def reconnect_tenacity_retry(reconnect_callback: Callable[[Any, int], Any],
                              max_attempts: int=2,
                              wait_time: int=2) -> tenacity.Retrying:
     """Build tenacity retry object"""

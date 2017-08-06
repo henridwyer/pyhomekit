@@ -17,8 +17,8 @@ class HapBlePduRequestHeader:
 
     def __init__(self,
                  cid_sid: bytes,
+                 op_code: int,
                  response: bool=True,
-                 op_code: int=None,
                  continuation: bool=False,
                  transaction_id: int=None) -> None:
         """HAP-BLE PDU Request Header.
@@ -78,10 +78,10 @@ class HapBlePduResponseHeader:
     """HAP-BLE PDU Response Header."""
 
     def __init__(self,
+                 status_code: int,
+                 transaction_id: int,
                  continuation: bool=False,
-                 response: bool=True,
-                 transaction_id: int=None,
-                 status_code: int=None) -> None:
+                 response: bool=True) -> None:
         """HAP-BLE PDU Response Header.
 
         Parameters
@@ -238,8 +238,8 @@ class HapCharacteristic:
 
         Fragmented read if required."""
 
-        logger.debug("HAP read with OpCode: {}.".format(
-            constants.HapBleOpCodes(request_header.op_code)))
+        logger.debug("HAP read with OpCode: %s.",
+                     constants.HapBleOpCodes()(request_header.op_code))
         self._request(request_header, body)
 
         response = self._read()
@@ -260,10 +260,8 @@ class HapCharacteristic:
         reconnect_callback = utils.reconnect_callback_factory(
             peripheral=self.peripheral)
 
-        retry = utils.reconnect_tenacity_retry(
-            reconnect_callback,
-            max_attempts,
-            wait_time, )
+        retry = utils.reconnect_tenacity_retry(reconnect_callback,
+                                               max_attempts, wait_time)
 
         retry_functions = [self._read_cid, self._request, self._read]
 
