@@ -116,6 +116,10 @@ class HapBlePduResponseHeader:
         control_field = bin(unpack('<B', data[:1])[0])[2:].zfill(8)[::-1]
         continuation = control_field[7] == '1'
         response = control_field[1] == '1'
+        if control_field[0] != '0' or control_field[2:
+                                                    7] != '00000' or control_field[0] != '0':
+            raise ValueError("Invalid control field for response header {}".
+                             format(control_field))
         tid = unpack('<B', data[1:2])[0]
         status_code = unpack('<B', data[2:3])[0]
         return HapBlePduResponseHeader(
@@ -344,10 +348,9 @@ class HapCharacteristic:
 
         response_header = HapBlePduResponseHeader.from_data(response)
 
-        if response_header.control_field != request_header.control_field:
-            raise ValueError("Invalid control field {}, expected {}.".format(
-                response_header.control_field, request_header.control_field),
-                             response)
+        if not response_header.response:
+            raise ValueError("Invalid control field {}, not a response.".
+                             format(response_header.control_field))
         if response_header.transaction_id != request_header.transaction_id:
             raise ValueError("Invalid transaction ID {}, expected {}.".format(
                 response_header.transaction_id, request_header.transaction_id),
