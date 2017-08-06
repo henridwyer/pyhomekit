@@ -1,6 +1,6 @@
 """HAP Constants"""
 
-from typing import Dict, Any  # NOQA pylint: disable=W0611
+from typing import Dict, Any, Optional  # NOQA pylint: disable=W0611
 
 from .utils import (to_bool, to_float, to_int32, to_uint16, to_uint32,
                     to_uint64, to_uint8, to_utf8, to_uuid, parse_format,
@@ -165,6 +165,10 @@ class HapBleStatusCodes:
     Insufficient_Authentication = 0x05
     Invalid_Request = 0x06
 
+    def __call__(self, code: int) -> Optional[str]:
+        """Return the status code name."""
+        return status_code_to_name.get(code, None)
+
 
 class HapBleOpCodes:
     """HAP Opcode Descriptions."""
@@ -176,6 +180,19 @@ class HapBleOpCodes:
     Characteristic_Execute_Write = 0x05
     Service_Signature_Read = 0x06
 
+    def __call__(self, code: int) -> Optional[str]:
+        """Return the op code name."""
+        return op_code_to_name.get(code, None)
+
+
+op_code_to_name = {
+    1: 'Characteristic_Signature_Read',
+    2: 'Characteristic_Write',
+    3: 'Characteristic_Read',
+    4: 'Characteristic_Timed_Write',
+    5: 'Characteristic_Execute_Write',
+    6: 'Service_Signature_Read'
+}
 
 status_code_to_name = {
     0: 'Success',

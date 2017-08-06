@@ -1,5 +1,6 @@
 """Useful functions for pyHomeKit."""
 
+import logging
 from struct import unpack
 from typing import Any, Callable, Iterator, Tuple  # NOQA pylint: disable=W0611
 
@@ -7,26 +8,31 @@ import tenacity
 
 import bluepy.btle
 
+logger = logging.getLogger(__name__)
 
-def reconnect_callback_factory(peripheral: bluepy.btle.Peripheral
+
+def reconnect_callback_factory(peripheral: bluepy.btle.Peripheral,
+                               wait_time: int=5,
+                               max_attempts: int=2
                                ) -> Callable[[Callable[[Any], Any]], int]:
     """Factory for creating tenacity before callbacks to reconnect to a peripheral."""
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(bluepy.btle.BTLEException),
-        stop=tenacity.wait_fixed(2),
-        wait=tenacity.stop_after_attempt(2))
+        stop=tenacity.wait_fixed(wait_time),
+        wait=tenacity.stop_after_attempt(max_attempts))
     # pylint: disable=W0613
     def reconnect(func: Callable[[Any], Any], trial_number: int) -> None:
         """Attempt to reconnect."""
-        peripheral.connect(peripheral.addr)
+        logger.debug("Attempting to reconnect to device.")
+        peripheral.connect(peripheral.addr, peripheral.addrType)
 
     return reconnect
 
 
 def reconnect_tenacity_retry(reconnect_callback: Callable[[Any], Any],
                              max_attempts: int=2,
-                             wait_time: int=1) -> tenacity.Retrying:
+                             wait_time: int=2) -> tenacity.Retrying:
     """Build tenacity retry object"""
     retry = tenacity.retry(
         stop=tenacity.stop_after_attempt(max_attempts),

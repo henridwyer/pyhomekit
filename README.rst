@@ -49,6 +49,16 @@ Interact with HAP characteristics:
     # Set the value of a characteristic
     device.lock_target_state(value=1)
 
+View the debug logs in stdout:
+
+.. code-block:: python
+
+    import logging
+
+    logging.basicConfig()
+    logging.getLogger('pyhomekit').setLevel(logging.DEBUG)
+
+
 Installation
 ------------
 

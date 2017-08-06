@@ -94,15 +94,17 @@ def hex_to_int(hex_str: str) -> int:
 a, A, b, B, s, v, u, S, K = map(hex_to_int, (a_hex, A_hex, b_hex, B_hex, s_hex,
                                              v_hex, u_hex, S_hex, K_hex))
 
-A_calc = pow(g, a, N)
-assert A_calc == A
-k = H(N, g, pad=True)
-B_calc = (k * v + pow(g, b, N)) % N
-assert B_calc == B
-u_calc = H(A, B, pad=True)
-assert u_calc == u
-x = H(s, H(test_username, test_password, sep=b":"))
-S_calc = pow(B - (k * pow(g, x, N)), a + (u * x), N)
-assert S_calc == S
-K_calc = H(S)
-assert K_calc == K
+
+def test_SRP_test_vectors():
+    A_calc = pow(g, a, N)
+    assert A_calc == A
+    k = H(N, g, pad=True)
+    B_calc = (k * v + pow(g, b, N)) % N
+    assert B_calc == B
+    u_calc = H(A, B, pad=True)
+    assert u_calc == u
+    x = H(s, H(test_username, test_password, sep=b":"))
+    S_calc = pow(B - (k * pow(g, x, N)), a + (u * x), N)
+    assert S_calc == S
+    K_calc = H(S)
+    assert K_calc == K

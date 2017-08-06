@@ -1,5 +1,6 @@
 """Contains all of the HAP-BLE classes."""
 
+import logging
 import random
 from struct import pack, unpack
 from typing import (Any, Dict, Iterable, List, Optional, Tuple)  # NOQA pylint: disable=W0611
@@ -7,6 +8,8 @@ from typing import (Any, Dict, Iterable, List, Optional, Tuple)  # NOQA pylint: 
 import bluepy.btle
 
 from . import constants, utils
+
+logger = logging.getLogger(__name__)
 
 
 class HapBlePduRequestHeader:
@@ -131,22 +134,6 @@ class HapBlePduResponseHeader:
                     self.status_code)
 
 
-class HapBleRequest:
-    """HAP-BLE Request."""
-
-    def __init__(self, header: HapBlePduRequestHeader) -> None:
-        """HAP-BLE Request.
-
-        header: the header for the request.
-        """
-        self._header = header
-
-    @property
-    def header(self) -> HapBlePduRequestHeader:
-        """Get the request header."""
-        return self._header
-
-
 class HapBleError(Exception):
     """HAP Error."""
 
@@ -198,41 +185,50 @@ class HapCharacteristic:
         self._signature = None  # type: Optional[Dict[str, Any]]
 
     def setup(self, retry: bool=True, max_attempts: int=5,
-              wait_time: int=2) -> None:
+              wait_time: int=2) -> Dict[str, Any]:
         """Performs a signature read and reads all characteristic metadata."""
         if retry:
             self._setup_tenacity(
                 max_attempts=max_attempts, wait_time=wait_time)
 
-        self.signature  # read signature pylint: disable=W0104
+        return self.signature  # read signature pylint: disable=W0104
 
     def _request(self, header: HapBlePduRequestHeader,
                  body: List[bytes]=None) -> None:
         """Perform a HAP read or write request."""
+        logger.debug("HAP read/write request.")
+
         if body is None:
-            body = [b""]
-        body_len = sum(len(b) for b in body)
-
-        body_concat = b''.join(body)
-
-        max_len = 512
-
-        # Is a fragmented write necessary?
-        if body_len <= max_len:
-            self.characteristic.write(
-                header.data + pack('<H', body_len) + body_concat,
-                withResponse=True)
+            logger.debug("Writing header to characteristic.")
+            self.characteristic.write(header.data, withResponse=True)
         else:
-            start = 0
-            for start in range(0, body_len + 1, step=max_len):
-                len_ = len(body_concat[start:start + max_len])
+            body_len = sum(len(b) for b in body)
+
+            body_concat = b''.join(body)
+
+            max_len = 512
+
+            # Is a fragmented write necessary?
+            if len(header.data) + 2 + body_len <= max_len:
+                logger.debug("Writing header + data to characteristic.")
                 self.characteristic.write(
-                    header.data + pack('<H', len_) +
-                    body_concat[start:start + max_len],
+                    header.data + pack('<H', body_len) + body_concat,
                     withResponse=True)
+            else:
+                start = 0
+                for start in range(0, body_len + 1, step=max_len):
+                    logger.debug(
+                        "Writing header + data to characteristic (fragmented)."
+                    )
+                    len_ = len(body_concat[start:start + max_len])
+                    self.characteristic.write(
+                        header.data + pack('<H', len_) +
+                        body_concat[start:start + max_len],
+                        withResponse=True)
 
     def _read(self) -> bytes:
         """Read the value of the characteristic."""
+        logger.debug("Reading characteristic value.")
         return self.characteristic.read()
 
     def read(self,
@@ -242,6 +238,8 @@ class HapCharacteristic:
 
         Fragmented read if required."""
 
+        logger.debug("HAP read with OpCode: {}.".format(
+            constants.HapBleOpCodes(request_header.op_code)))
         self._request(request_header, body)
 
         response = self._read()
@@ -293,6 +291,7 @@ class HapCharacteristic:
 
     def _read_cid(self) -> bytes:
         """Read the Characteristic ID descriptor."""
+        logger.debug("Read characteristic ID descriptor.")
         cid_descriptor = self.characteristic.getDescriptors(
             constants.characteristic_ID_descriptor_UUID)[0]
         return cid_descriptor.read()
@@ -324,8 +323,9 @@ class HapCharacteristic:
         return response_header
 
     def _parse_response(self, response: bytes) -> Dict[str, Any]:
-        """Parse the signature read response and set attributes."""
+        """Parse read response and set attributes."""
 
+        logger.debug("Parse read response.")
         attributes = {}
         for body_type, length, bytes_ in utils.iterate_tvl(response[5:]):
             if len(bytes_) != length:
