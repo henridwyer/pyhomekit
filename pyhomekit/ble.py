@@ -18,7 +18,7 @@ class HapBlePduRequestHeader:
     def __init__(self,
                  cid_sid: bytes,
                  op_code: int,
-                 response: bool=True,
+                 response: bool=False,
                  continuation: bool=False,
                  transaction_id: int=None) -> None:
         """HAP-BLE PDU Request Header.

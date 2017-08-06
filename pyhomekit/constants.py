@@ -175,6 +175,16 @@ class PairingTlvValues:
     kTLVType_Separator = 0xFF
 
 
+class PairingKTLVType_MethodValues:
+    """Pairing service kTLV method values"""
+    Reserved = 0
+    Pair_Setup = 1
+    Pair_Verify = 2
+    Add_Pairing = 3
+    Remove_Pairing = 4
+    List_Pairings = 5
+
+
 class HapBleStatusCodes:
     """HAP Status code definitions and descriptions."""
 
