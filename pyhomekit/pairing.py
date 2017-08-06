@@ -64,7 +64,7 @@ def random_int(n_bits: int=RANDOM_BITS) -> int:
 k = H(N, g, pad=True)
 
 
-def pair():
+def pair() -> None:
     """Pairing SRP protocol"""
     # Protocol Summary
 
@@ -103,7 +103,7 @@ def pair():
     # kTLVType_State <M4>
     # kTLVType_Proof <Accessory's SRP proof> - M2
 
-    parsed_response = {}
+    parsed_response = {s: K}
     M2 = parsed_response['kTLVType_Proof']
 
     M2_calc = H(A, M1, S)

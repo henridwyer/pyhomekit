@@ -189,7 +189,7 @@ class HapCharacteristic:
         self.characteristic = characteristic
         self.peripheral = characteristic.peripheral
         self._cid = None  # type: Optional[bytes]
-        self.hap_format_converter = utils.identity
+        self.hap_format_converter = constants.identity
         self._signature = None  # type: Optional[Dict[str, Any]]
 
     def setup(self, retry: bool=True, max_attempts: int=5,
@@ -200,13 +200,6 @@ class HapCharacteristic:
                 max_attempts=max_attempts, wait_time=wait_time)
 
         return self.signature  # read signature pylint: disable=W0104
-
-    @staticmethod
-    def _prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
-        """Formats the TLV into the expected format of the PDU."""
-        if isinstance(param_type, str):
-            param_type = constants.HAP_param_type_name_to_code[param_type]
-        return pack('<BB', param_type, len(value)) + value
 
     def _request(self,
                  header: HapBlePduRequestHeader,
@@ -219,38 +212,36 @@ class HapCharacteristic:
             self.characteristic.write(header.data, withResponse=True)
         else:
             prepared_tlvs = [
-                self._prepare_tlv(param_type, value)
+                utils.prepare_tlv(param_type, value)
                 for param_type, value in body
             ]
-            body_len = sum(len(b) for b in prepared_tlvs)
 
             body_concat = b''.join(prepared_tlvs)
 
             max_len = 512
 
             # Is a fragmented write necessary?
-            if len(header.data) + 2 + body_len <= max_len:
+            if len(header.data) + 2 + len(body_concat) <= max_len:
                 logger.debug("Writing header + data to characteristic.")
                 self.characteristic.write(
-                    header.data + pack('<H', body_len) + body_concat,
+                    header.data + pack('<H', len(body_concat)) + body_concat,
                     withResponse=True)
             else:
                 while body:
                     # Fill fragment
                     fragment_data = b''
                     while body and len(fragment_data) + len(
-                            self._prepare_tlv(*body[0])) < max_len:
-                        fragment_data += self._prepare_tlv(*body.pop(0))
+                            utils.prepare_tlv(*body[0])) < max_len:
+                        fragment_data += utils.prepare_tlv(*body.pop(0))
 
                     # Split TLV
                     if body:
                         param_type, value = body[0]
-                        first_fragment, second_fragment = value[:max_len - len(
+                        frag_1, frag_2 = value[:max_len - len(
                             fragment_data)], value[
                                 max_len - len(fragment_data):]
-                        body[0] = param_type, second_fragment
-                        fragment_data += self._prepare_tlv(
-                            param_type, first_fragment)
+                        body[0] = param_type, frag_2
+                        fragment_data += utils.prepare_tlv(param_type, frag_1)
 
                     logger.debug(
                         "Writing header + data to characteristic (fragmented)."

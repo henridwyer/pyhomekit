@@ -1,12 +1,14 @@
 """Useful functions for pyHomeKit."""
 
 import logging
-from struct import unpack
-from typing import Any, Callable, Iterator, Tuple  # NOQA pylint: disable=W0611
+from struct import pack
+from typing import Any, Callable, Iterator, Tuple, Union  # NOQA pylint: disable=W0611
 
 import tenacity
 
 import bluepy.btle
+
+from .constants import HAP_param_type_name_to_code
 
 logger = logging.getLogger(__name__)
 
@@ -55,68 +57,8 @@ def iterate_tvl(response: bytes) -> Iterator[Tuple[int, int, bytes]]:
         end += 2 + length
 
 
-def to_uuid(b: bytes) -> str:
-    """Convert bytes to string representation of uuid.
-
-    The bytes are reversed first."""
-    s = b[::-1].hex()
-    return '-'.join((s[:8], s[8:12], s[12:16], s[16:20], s[20:]))
-
-
-def to_bool(b: bytes) -> bool:
-    """Convert to bytes to bool (little endian)."""
-    return unpack('<?', b)[0]
-
-
-def to_float(b: bytes) -> int:
-    """Convert to bytes to float (little endian)."""
-    return unpack('<f', b)[0]
-
-
-def to_int32(b: bytes) -> int:
-    """Convert to bytes to 32 bit signed int (little endian)."""
-    return unpack('<i', b)[0]
-
-
-def to_uint64(b: bytes) -> int:
-    """Convert to bytes to 64 bit unsigned int (little endian)."""
-    return unpack('<Q', b)[0]
-
-
-def to_uint32(b: bytes) -> int:
-    """Convert to bytes to 32 bit unsigned int (little endian)."""
-    return unpack('<I', b)[0]
-
-
-def to_uint16(b: bytes) -> int:
-    """Convert to bytes to 16 bit unsigned short (little endian)."""
-    return unpack('<H', b)[0]
-
-
-def to_uint8(b: bytes) -> int:
-    """Convert to bytes to 8 bit unsigned short (little endian)."""
-    return unpack('<B', b)[0]
-
-
-def to_utf8(b: bytes) -> str:
-    """Convert bytes to str utf-8 encoded."""
-    return b.decode('utf-8')
-
-
-def parse_format(b: bytes) -> Tuple[int, int]:
-    """Parse the bluetooth characteristic presentation format to format and unit code"""
-    format_ = unpack('<B', b[0:1])[0]
-    exponent = unpack('<b', b[1:2])[0]  # Not used, should be 0
-    unit = unpack('<H', b[2:4])[0]
-    namespace = unpack('<b', b[4:5])[0]  # Not used, should be 1
-    description = unpack('<H', b[5:])[0]  # Not used, should be 0
-
-    if exponent != 0 or namespace != 1 or description != 0:
-        raise ValueError("Unexpected presentation format: {}".format(b))
-
-    return (format_, unit)
-
-
-def identity(x: Any) -> Any:
-    """Identity"""
-    return x
+def prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
+    """Formats the TLV into the expected format of the PDU."""
+    if isinstance(param_type, str):
+        param_type = HAP_param_type_name_to_code[param_type]
+    return pack('<BB', param_type, len(value)) + value
