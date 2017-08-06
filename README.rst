@@ -26,28 +26,24 @@ Getting Started
 Usage
 ------------------
 
-Connect to a HAP accessory view its HAP characteristics:
+Connect to a HAP characteristics and view its signature:
 
 .. code-block:: python
 
     import pyhomekit
+    import bluepy
 
     device_mac = "aa:aa:aa:aa:aa"
-    device = pyhomekit.ble.HapAccessory(mac=device_mac)
-    characteristics = device.discover_characteristics()
 
-    print(characteristics)
+    characteristic_uuid = "00000000-0000-0000-0000-000000000000"
 
-Interact with HAP characteristics:
+    device = bluepy.btle.Peripheral()
+    device.connect(device_mac)
+    bluepy_characteristic = device.getCharacteristics(uuid=characteristic_uuid)[0]
 
-.. code-block:: python
+    hap_characteristic = pyhomekit.ble.HapCharacteristic(bluepy_characteristic)
 
-    # View the value of a characteristic
-    device.lock_target_state()
-    >>> 0
-
-    # Set the value of a characteristic
-    device.lock_target_state(value=1)
+    print(hap_characteristic.signature)
 
 View the debug logs in stdout:
 
