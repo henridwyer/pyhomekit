@@ -44,6 +44,10 @@ class HapBlePduHeader:
             continuation=int(self.continuation), response=int(self.response))
         return control_field_str
 
+    def __str__(self) -> str:
+        return "continuation: {}, response: {}".format(self.continuation,
+                                                       self.response)
+
 
 class HapBlePduRequestHeader(HapBlePduHeader):
     """HAP-BLE PDU Request Header.
@@ -102,6 +106,11 @@ class HapBlePduRequestHeader(HapBlePduHeader):
         return pack('<BBB', self.control_field, self.op_code,
                     self.transaction_id) + self.cid_sid
 
+    def __str__(self) -> str:
+        return super(HapBlePduRequestHeader, self).__str__(
+        ) + "op_code: {}, transaction_id: {}, cid_sid: {}".format(
+            self.op_code, self.transaction_id, self.cid_sid)
+
 
 class HapBlePduResponseHeader(HapBlePduHeader):
     """HAP-BLE PDU Response Header.
@@ -156,6 +165,13 @@ class HapBlePduResponseHeader(HapBlePduHeader):
         """Byte representation of the PDU Header."""
         return pack('<BBB', self.control_field, self.transaction_id,
                     self.status_code)
+
+    def __str__(self) -> str:
+        return super(
+            HapBlePduResponseHeader,
+            self).__str__() + "status_code: {}, transaction_id: {}".format(
+                constants.HapBleStatusCodes()(self.status_code),
+                self.transaction_id)
 
 
 class HapBleError(Exception):
@@ -291,6 +307,8 @@ class HapCharacteristic:
 
         response_header = self._check_read_response(
             request_header=request_header, response=response)
+
+        logger.debug("Response header: %s", response_header)
 
         if response_header.continuation:
             # TODO: fragmented read
