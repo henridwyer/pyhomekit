@@ -12,8 +12,61 @@ from . import constants, utils
 logger = logging.getLogger(__name__)
 
 
-class HapBlePduRequestHeader:
-    """HAP-BLE PDU Request Header."""
+class HapBlePduHeader:
+    """Interface for HAP-BLE Headers.
+
+    This class is not meant to be instantiated. Use the children
+    HapBlePduRequestHeader and HapBlePduResponseHeader.
+
+    Parameters
+    ----------
+    continuation
+        indicates the fragmentation status of the HAP-BLE PDU. False
+        indicates a first fragment or no fragmentation.
+
+    response
+        indicates whether the PDU is a response (versus a request)
+    """
+
+    def __init__(self, response: bool, continuation: bool) -> None:
+        self.continuation = continuation
+        self.response = response
+
+    @property
+    def control_field(self) -> int:
+        """Get Control Field as int."""
+        return int(self.control_field_bits, 2)
+
+    @property
+    def control_field_bits(self) -> str:
+        """Get Control Field as string of bits."""
+        control_field_str = "{continuation}00000{response}0".format(
+            continuation=int(self.continuation), response=int(self.response))
+        return control_field_str
+
+
+class HapBlePduRequestHeader(HapBlePduHeader):
+    """HAP-BLE PDU Request Header.
+
+    Parameters
+    ----------
+    continuation
+        indicates the fragmentation status of the HAP-BLE PDU. False
+        indicates a first fragment or no fragmentation.
+
+    response
+        indicates whether the PDU is a response (versus a request)
+
+    transation_id
+        Transaction Identifier
+
+    op_code
+        HAP Opcode field, which indicates the opcode for the HAP Request PDU.
+
+    cid_sid
+        Characteristic / Service Instance Identifier is the instance id
+        of the characteristic / service for a particular request.
+    """
 
     def __init__(self,
                  cid_sid: bytes,
@@ -21,39 +74,11 @@ class HapBlePduRequestHeader:
                  response: bool=False,
                  continuation: bool=False,
                  transaction_id: int=None) -> None:
-        """HAP-BLE PDU Request Header.
-
-        Parameters
-        ----------
-        continuation
-            indicates the fragmentation status of the HAP-BLE PDU. False
-            indicates a first fragment or no fragmentation.
-
-        response
-            indicates whether the PDU is a response (versus a request)
-
-        transation_id
-            Transaction Identifier
-
-        op_code
-            HAP Opcode field, which indicates the opcode for the HAP Request PDU.
-
-        cid_sid
-            Characteristic / Service Instance Identifier is the instance id
-            of the characteristic / service for a particular request.
-        """
-        self.continuation = continuation
-        self.response = response
+        super(HapBlePduRequestHeader, self).__init__(
+            response=response, continuation=continuation)
         self.op_code = op_code
         self._transaction_id = transaction_id
         self.cid_sid = cid_sid
-
-    @property
-    def control_field(self) -> int:
-        """Get formatted Control Field."""
-        header = "{continuation}00000{response}0".format(
-            continuation=int(self.continuation), response=int(self.response))
-        return int(header, 2)
 
     @property
     def transaction_id(self) -> int:
@@ -78,33 +103,32 @@ class HapBlePduRequestHeader:
                     self.transaction_id) + self.cid_sid
 
 
-class HapBlePduResponseHeader:
-    """HAP-BLE PDU Response Header."""
+class HapBlePduResponseHeader(HapBlePduHeader):
+    """HAP-BLE PDU Response Header.
+
+    Parameters
+    ----------
+    continuation
+        indicates the fragmentation status of the HAP-BLE PDU. False
+        indicates a first fragment or no fragmentation.
+
+    response
+        indicates whether the PDU is a response (versus a request)
+
+    transaction_id
+        Transaction Identifier
+
+    status_code
+        HAP Status code for the request.
+    """
 
     def __init__(self,
                  status_code: int,
                  transaction_id: int,
                  continuation: bool=False,
                  response: bool=True) -> None:
-        """HAP-BLE PDU Response Header.
-
-        Parameters
-        ----------
-        continuation
-            indicates the fragmentation status of the HAP-BLE PDU. False
-            indicates a first fragment or no fragmentation.
-
-        response
-            indicates whether the PDU is a response (versus a request)
-
-        transaction_id
-            Transaction Identifier
-
-        status_code
-            HAP Status code for the request.
-        """
-        self.continuation = continuation
-        self.response = response
+        super(HapBlePduResponseHeader, self).__init__(
+            response=response, continuation=continuation)
         self.transaction_id = transaction_id
         self.status_code = status_code
 
@@ -112,28 +136,20 @@ class HapBlePduResponseHeader:
     def from_data(cls, data: bytes) -> 'HapBlePduResponseHeader':
         """Creates a header from response bytes"""
 
+        control_field, tid, status_code = unpack('<BBB', data[:3])
+
         # turn control field into its bits
-        control_field = bin(unpack('<B', data[:1])[0])[2:].zfill(8)[::-1]
+        control_field = bin(control_field)[2:].zfill(8)[::-1]
         continuation = control_field[7] == '1'
         response = control_field[1] == '1'
-        if control_field[0] != '0' or control_field[2:
-                                                    7] != '00000' or control_field[0] != '0':
+        if control_field[0] + control_field[2:7] != '000000':
             raise ValueError("Invalid control field for response header {}".
                              format(control_field))
-        tid = unpack('<B', data[1:2])[0]
-        status_code = unpack('<B', data[2:3])[0]
         return HapBlePduResponseHeader(
             continuation=continuation,
             response=response,
             transaction_id=tid,
             status_code=status_code)
-
-    @property
-    def control_field(self) -> int:
-        """Get formatted Control Field."""
-        header = "{continuation}00000{response}0".format(
-            continuation=int(self.continuation), response=int(self.response))
-        return int(header, 2)
 
     @property
     def data(self) -> bytes:
@@ -399,6 +415,7 @@ class HapCharacteristic:
 
             # Add new attributes
             for key, val in new_attrs.items():
+                logger.debug("TLV found in response. %s: %s", key, val)
                 setattr(self, key.lower(), val)
                 attributes[key.lower()] = val
 
