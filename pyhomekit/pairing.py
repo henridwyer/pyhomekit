@@ -10,7 +10,7 @@ https://tools.ietf.org/html/rfc2945
 """
 
 from hashlib import sha512
-from typing import Union
+from typing import Union, Dict, Any  # NOQA pylint: disable=W0611
 
 import random
 # import libnacl
@@ -63,46 +63,49 @@ def random_int(n_bits: int=RANDOM_BITS) -> int:
 
 k = H(N, g, pad=True)
 
-# Protocol Summary
 
-# Message 1: Send to accessory
-# SRP Start Request
-# kTLVType_State <M1>
-# kTLVType_Method <Pair Setup>
+def pair():
+    """Pairing SRP protocol"""
+    # Protocol Summary
 
-# Message 2: Receive from accessory
-# SRP Start Response
-# kTLVType_State <M2>
-# kTLVType_PublicKey <Accessory's SRP public key> - s
-# kTLVType_Salt <16 byte salt generated in Step 6>  - B
-parsed_response = {}
-B = parsed_response['kTLVType_PublicKey']
-s = parsed_response['kTLVType_Salt']
+    # Message 1: Send to accessory
+    # SRP Start Request
+    # kTLVType_State <M1>
+    # kTLVType_Method <Pair Setup>
 
-# Message 3: Send to accessory
-# SRP Verify Request
-# kTLVType_State <M3>
-# kTLVType_PublicKey <iOS device's SRP public key> - A
-# kTLVType_Proof <iOS device's SRP proof> - M1
-my_s = random_int(SALT_BITS)
-x = H(my_s, H(USERNAME, password, sep=b":"))
-a = random_int(RANDOM_BITS)
-A = pow(g, a, N)
+    # Message 2: Receive from accessory
+    # SRP Start Response
+    # kTLVType_State <M2>
+    # kTLVType_PublicKey <Accessory's SRP public key> - s
+    # kTLVType_Salt <16 byte salt generated in Step 6>  - B
+    parsed_response = {}  # type: Dict[str, Any]
+    B = parsed_response['kTLVType_PublicKey']
+    s = parsed_response['kTLVType_Salt']
 
-u = H(A, B, pad=True)
-S = pow(B - (k * pow(g, x, N)), a + (u * x), N)
-K = H(S)
-M1 = H(A, B, S)
-# M1 = H(H(N) | H(g), H(USERNAME), s, A, B, K)
+    # Message 3: Send to accessory
+    # SRP Verify Request
+    # kTLVType_State <M3>
+    # kTLVType_PublicKey <iOS device's SRP public key> - A
+    # kTLVType_Proof <iOS device's SRP proof> - M1
+    my_s = random_int(SALT_BITS)
+    x = H(my_s, H(USERNAME, password, sep=b":"))
+    a = random_int(RANDOM_BITS)
+    A = pow(g, a, N)
 
-# Message 4: Receive from accessory
-# SRP Verify Response
-# kTLVType_State <M4>
-# kTLVType_Proof <Accessory's SRP proof> - M2
+    u = H(A, B, pad=True)
+    S = pow(B - (k * pow(g, x, N)), a + (u * x), N)
+    K = H(S)
+    M1 = H(A, B, S)
+    # M1 = H(H(N) | H(g), H(USERNAME), s, A, B, K)
 
-parsed_response = {}
-M2 = parsed_response['kTLVType_Proof']
+    # Message 4: Receive from accessory
+    # SRP Verify Response
+    # kTLVType_State <M4>
+    # kTLVType_Proof <Accessory's SRP proof> - M2
 
-M2_calc = H(A, M1, S)
-if M2_calc != M2:
-    raise ValueError("Authentication failed - invalid prood received.")
+    parsed_response = {}
+    M2 = parsed_response['kTLVType_Proof']
+
+    M2_calc = H(A, M1, S)
+    if M2_calc != M2:
+        raise ValueError("Authentication failed - invalid prood received.")

@@ -33,6 +33,27 @@ HAP_param_type_code_to_name = {
     18: 'HAP_Valid_Values_Range_Descriptor'
 }
 
+HAP_param_type_name_to_code = {
+    'Additional_Authorization_Data': 2,
+    'Characteristic_Instance_ID': 5,
+    'Characteristic_Type': 4,
+    'GATT_Presentation_Format_Descriptor': 12,
+    'GATT_User_Description_Descriptor': 11,
+    'GATT_Valid_Range': 13,
+    'HAP_Characteristic_Properties_Descriptor': 10,
+    'HAP_Linked_Services': 16,
+    'HAP_Service_Properties': 15,
+    'HAP_Step_Value_Descriptor': 14,
+    'HAP_Valid_Values_Descriptor': 17,
+    'HAP_Valid_Values_Range_Descriptor': 18,
+    'Origin_(local_vs_remote)': 3,
+    'Return_Response': 9,
+    'Service_Instance_ID': 7,
+    'Service_Type': 6,
+    'TTL': 8,
+    'Value': 1
+}
+
 HAP_param_name_to_converter = {
     "Value": identity,
     "Additional_Authorization_Data": identity,

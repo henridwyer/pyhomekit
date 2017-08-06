@@ -3,7 +3,7 @@
 import logging
 import random
 from struct import pack, unpack
-from typing import (Any, Dict, Iterable, List, Optional, Tuple)  # NOQA pylint: disable=W0611
+from typing import (Any, Dict, Iterable, List, Optional, Tuple, Union)  # NOQA pylint: disable=W0611
 
 import bluepy.btle
 
@@ -69,7 +69,11 @@ class HapBlePduRequestHeader:
 
     @property
     def data(self) -> bytes:
-        """Byte representation of the PDU Header."""
+        """Byte representation of the PDU Header.
+
+        Depends on whether it is a continuation header or not."""
+        if self.continuation:
+            return pack('<BB', self.control_field, self.transaction_id)
         return pack('<BBB', self.control_field, self.op_code,
                     self.transaction_id) + self.cid_sid
 
@@ -193,18 +197,30 @@ class HapCharacteristic:
 
         return self.signature  # read signature pylint: disable=W0104
 
-    def _request(self, header: HapBlePduRequestHeader,
-                 body: List[bytes]=None) -> None:
+    @staticmethod
+    def _prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
+        """Formats the TLV into the expected format of the PDU."""
+        if isinstance(param_type, str):
+            param_type = constants.HAP_param_type_name_to_code[param_type]
+        return pack('<BB', param_type, len(value)) + value
+
+    def _request(self,
+                 header: HapBlePduRequestHeader,
+                 body: List[Tuple[Union[str, int], bytes]]=None) -> None:
         """Perform a HAP read or write request."""
         logger.debug("HAP read/write request.")
 
-        if body is None:
+        if not body:
             logger.debug("Writing header to characteristic.")
             self.characteristic.write(header.data, withResponse=True)
         else:
-            body_len = sum(len(b) for b in body)
+            prepared_tlvs = [
+                self._prepare_tlv(param_type, value)
+                for param_type, value in body
+            ]
+            body_len = sum(len(b) for b in prepared_tlvs)
 
-            body_concat = b''.join(body)
+            body_concat = b''.join(prepared_tlvs)
 
             max_len = 512
 
@@ -215,31 +231,49 @@ class HapCharacteristic:
                     header.data + pack('<H', body_len) + body_concat,
                     withResponse=True)
             else:
-                start = 0
-                for start in range(0, body_len + 1, step=max_len):
+                while body:
+                    # Fill fragment
+                    fragment_data = b''
+                    while body and len(fragment_data) + len(
+                            self._prepare_tlv(*body[0])) < max_len:
+                        fragment_data += self._prepare_tlv(*body.pop(0))
+
+                    # Split TLV
+                    if body:
+                        param_type, value = body[0]
+                        first_fragment, second_fragment = value[:max_len - len(
+                            fragment_data)], value[
+                                max_len - len(fragment_data):]
+                        body[0] = param_type, second_fragment
+                        fragment_data += self._prepare_tlv(
+                            param_type, first_fragment)
+
                     logger.debug(
                         "Writing header + data to characteristic (fragmented)."
                     )
-                    len_ = len(body_concat[start:start + max_len])
+                    # How many TLV to send
                     self.characteristic.write(
-                        header.data + pack('<H', len_) +
-                        body_concat[start:start + max_len],
+                        header.data + pack('<H', len(fragment_data)) +
+                        fragment_data,
                         withResponse=True)
+
+                    # Future fragments are continuations
+                    header.continuation = True
 
     def _read(self) -> bytes:
         """Read the value of the characteristic."""
         logger.debug("Reading characteristic value.")
         return self.characteristic.read()
 
-    def read(self,
-             request_header: HapBlePduRequestHeader,
-             body: List[bytes]=None) -> Dict[str, Any]:
-        """Perform a HAP Characteristic read.
+    def write(self,
+              request_header: HapBlePduRequestHeader,
+              body: List[Tuple[Union[str, int], bytes]]) -> Dict[str, Any]:
+        """Perform a HAP Characteristic write.
 
-        Fragmented read if required."""
-
-        logger.debug("HAP read with OpCode: %s.",
+        Fragmented read/write if required."""
+        logger.debug("HAP read/write with OpCode: %s.",
                      constants.HapBleOpCodes()(request_header.op_code))
+
         self._request(request_header, body)
 
         response = self._read()
@@ -252,6 +286,15 @@ class HapCharacteristic:
             raise NotImplementedError("Fragmented read not yet supported")
 
         response_parsed = self._parse_response(response)
+
+        return response_parsed
+
+    def read(self, request_header: HapBlePduRequestHeader) -> Dict[str, Any]:
+        """Perform a HAP Characteristic read.
+
+        Fragmented read if required."""
+
+        response_parsed = self.write(request_header, [])
 
         return response_parsed
 
