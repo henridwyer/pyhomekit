@@ -461,7 +461,7 @@ class HapAccessory:
 
     def charateristic(self, uuid: str) -> bluepy.btle.Characteristic:
         """Return the GATT characteristic for the given UUID."""
-        if uuid in self._characteristics:
+        if uuid not in self._characteristics:
             characteristic = self.peripheral.getCharacteristics(uuid=uuid)[0]
             self._characteristics[uuid] = characteristic
         return self._characteristics[uuid]

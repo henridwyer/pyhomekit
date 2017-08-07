@@ -77,10 +77,35 @@ pair_setup_characteristic_UUID = "0000004C-0000-1000-8000-0026BB765291"
 pair_verify_characteristic_UUID = "0000004E-0000-1000-8000-0026BB765291"
 pairing_features_characteristic_UUID = "0000004F-0000-1000-8000-0026BB765291"
 
+
+class HapParamTypes:
+    Value = 1
+    Additional_Authorization_Data = 2
+    Origin_local_vs_remote = 3
+    Characteristic_Type = 4
+    Characteristic_Instance_ID = 5
+    Service_Type = 6
+    Service_Instance_ID = 7
+    TTL = 8
+    Return_Response = 9
+    HAP_Characteristic_Properties_Descriptor = 10
+    GATT_User_Description_Descriptor = 11
+    GATT_Presentation_Format_Descriptor = 12
+    GATT_Valid_Range = 13
+    HAP_Step_Value_Descriptor = 14
+    HAP_Service_Properties = 15
+    HAP_Linked_Services = 16
+    HAP_Valid_Values_Descriptor = 17
+    HAP_Valid_Values_Range_Descriptor = 18
+
+    def __call__(self, code: int) -> str:
+        return HAP_param_type_code_to_name[code]
+
+
 HAP_param_type_code_to_name = {
     1: 'Value',
     2: 'Additional_Authorization_Data',
-    3: 'Origin_(local_vs_remote)',
+    3: 'Origin_local_vs_remote',
     4: 'Characteristic_Type',
     5: 'Characteristic_Instance_ID',
     6: 'Service_Type',
@@ -99,24 +124,24 @@ HAP_param_type_code_to_name = {
 }
 
 HAP_param_type_name_to_code = {
-    'Additional_Authorization_Data': 2,
-    'Characteristic_Instance_ID': 5,
-    'Characteristic_Type': 4,
-    'GATT_Presentation_Format_Descriptor': 12,
-    'GATT_User_Description_Descriptor': 11,
-    'GATT_Valid_Range': 13,
-    'HAP_Characteristic_Properties_Descriptor': 10,
-    'HAP_Linked_Services': 16,
-    'HAP_Service_Properties': 15,
-    'HAP_Step_Value_Descriptor': 14,
-    'HAP_Valid_Values_Descriptor': 17,
-    'HAP_Valid_Values_Range_Descriptor': 18,
-    'Origin_(local_vs_remote)': 3,
-    'Return_Response': 9,
-    'Service_Instance_ID': 7,
-    'Service_Type': 6,
-    'TTL': 8,
-    'Value': 1
+    "Value": 1,
+    "Additional_Authorization_Data": 2,
+    "Origin_local_vs_remote": 3,
+    "Characteristic_Type": 4,
+    "Characteristic_Instance_ID": 5,
+    "Service_Type": 6,
+    "Service_Instance_ID": 7,
+    "TTL": 8,
+    "Return_Response": 9,
+    "HAP_Characteristic_Properties_Descriptor": 10,
+    "GATT_User_Description_Descriptor": 11,
+    "GATT_Presentation_Format_Descriptor": 12,
+    "GATT_Valid_Range": 13,
+    "HAP_Step_Value_Descriptor": 14,
+    "HAP_Service_Properties": 15,
+    "HAP_Linked_Services": 16,
+    "HAP_Valid_Values_Descriptor": 17,
+    "HAP_Valid_Values_Range_Descriptor": 18
 }
 
 HAP_param_name_to_converter = {
@@ -261,9 +286,9 @@ class HapBleStatusCodes:
     Insufficient_Authentication = 0x05
     Invalid_Request = 0x06
 
-    def __call__(self, code: int) -> Optional[str]:
+    def __call__(self, code: int) -> str:
         """Return the status code name."""
-        return status_code_to_name.get(code, None)
+        return status_code_to_name[code]
 
 
 class HapBleOpCodes:
@@ -276,9 +301,9 @@ class HapBleOpCodes:
     Characteristic_Execute_Write = 0x05
     Service_Signature_Read = 0x06
 
-    def __call__(self, code: int) -> Optional[str]:
+    def __call__(self, code: int) -> str:
         """Return the op code name."""
-        return op_code_to_name.get(code, None)
+        return op_code_to_name[code]
 
 
 op_code_to_name = {
