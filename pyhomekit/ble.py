@@ -3,9 +3,10 @@
 import logging
 import random
 from struct import pack, unpack
-from typing import (Any, Dict, Iterable, List, Optional, Tuple, Union)  # NOQA pylint: disable=W0611
+from typing import (Any, Callable, Dict, List, Optional, Tuple, Union)  # NOQA pylint: disable=W0611
 
 import bluepy.btle
+import tenacity
 
 from . import constants, utils
 
@@ -218,26 +219,42 @@ class HapCharacteristic:
 
     Parameters
     ----------
-    characteristic
-        The underlying GATT characteristic
+    accessory
+        The accessory this characteristic belongs to.
 
+    uuid
+        The UUID of the underlying GATT characteristic
+
+    retry
+        Attempt to reconnect when error.
+
+    retry_max_attempts
+        How many times to attempt reconnection.
+
+    retry_wait_time
+        How long to wait in s between reconnection attempts.
     """
 
-    def __init__(self, characteristic: bluepy.btle.Characteristic) -> None:
-        self.characteristic = characteristic
-        self.peripheral = characteristic.peripheral
+    def __init__(self,
+                 accessory: 'HapAccessory',
+                 uuid: str,
+                 retry: bool=False,
+                 retry_max_attempts: int=1,
+                 retry_wait_time: int=2) -> None:
+        self.uuid = uuid
+        self.accessory = accessory
+        self.retry = retry
+        self.retry_max_attempts = retry_max_attempts
+        self.retry_wait_time = retry_wait_time
+
         self._cid = None  # type: Optional[bytes]
         self.hap_format_converter = constants.identity
         self._signature = None  # type: Optional[Dict[str, Any]]
 
-    def setup(self, retry: bool=True, max_attempts: int=5,
-              wait_time: int=2) -> Dict[str, Any]:
-        """Performs a signature read and reads all characteristic metadata."""
-        if retry:
+        if self.retry:
             self._setup_tenacity(
-                max_attempts=max_attempts, wait_time=wait_time)
-
-        return self.signature  # read signature pylint: disable=W0104
+                max_attempts=self.retry_max_attempts,
+                wait_time=self.retry_wait_time)
 
     def _request(self,
                  header: HapBlePduRequestHeader,
@@ -247,7 +264,7 @@ class HapCharacteristic:
 
         if not body:
             logger.debug("Writing header to characteristic: %s", header.data)
-            self.characteristic.write(header.data, withResponse=True)
+            self._characteristic.write(header.data, withResponse=True)
         else:
             prepared_tlvs = [
                 utils.prepare_tlv(param_type, value)
@@ -263,7 +280,7 @@ class HapCharacteristic:
                 data = header.data + pack('<H', len(body_concat)) + body_concat
                 logger.debug("Writing header + data to characteristic: %s",
                              data)
-                self.characteristic.write(data, withResponse=True)
+                self._characteristic.write(data, withResponse=True)
             else:
                 while body:
                     # Fill fragment
@@ -287,7 +304,7 @@ class HapCharacteristic:
                         "Writing header + data to characteristic (fragmented): %s ",
                         data)
                     # How many TLV to send
-                    self.characteristic.write(data, withResponse=True)
+                    self._characteristic.write(data, withResponse=True)
 
                     # Future fragments are continuations
                     header.continuation = True
@@ -295,7 +312,7 @@ class HapCharacteristic:
     def _read(self) -> bytes:
         """Read the value of the characteristic."""
         logger.debug("Reading characteristic value.")
-        return self.characteristic.read()
+        return self._characteristic.read()
 
     def write(self,
               request_header: HapBlePduRequestHeader,
@@ -335,17 +352,24 @@ class HapCharacteristic:
 
     def _setup_tenacity(self, max_attempts: int, wait_time: int) -> None:
         """Adds automatic retrying to functions that need to read from device."""
-        reconnect_callback = utils.reconnect_callback_factory(
-            peripheral=self.peripheral)
+        reconnect_callback = reconnect_callback_factory(
+            accessory=self.accessory)
 
-        retry = utils.reconnect_tenacity_retry(reconnect_callback,
-                                               max_attempts, wait_time)
+        retry = reconnect_tenacity_retry(reconnect_callback, max_attempts,
+                                         wait_time)
 
-        retry_functions = [self._read_cid, self._request, self._read]
+        retry_functions = [
+            self._read_cid, self._request, self._read, self._characteristic
+        ]
 
         for func in retry_functions:
             name = func.__name__
-            setattr(self, name, retry(getattr(self, func.__name__)))
+            setattr(self, name, retry(func))
+
+    @property
+    def _characteristic(self) -> bluepy.btle.Characteristic:
+        """Returns the underlying GATT characteristic."""
+        return self.accessory.charateristic(self.uuid)
 
     @property
     def cid(self) -> bytes:
@@ -368,7 +392,7 @@ class HapCharacteristic:
     def _read_cid(self) -> bytes:
         """Read the Characteristic ID descriptor."""
         logger.debug("Read characteristic ID descriptor.")
-        cid_descriptor = self.characteristic.getDescriptors(
+        cid_descriptor = self._characteristic.getDescriptors(
             constants.characteristic_ID_descriptor_UUID)[0]
         return cid_descriptor.read()
 
@@ -447,10 +471,34 @@ class HapCharacteristic:
 
 
 class HapAccessory:
-    """Accessory"""
+    """HAP Accesory.
 
-    def __init__(self) -> None:
-        pass
+    Parameters
+    ----------
+    address
+        MAC address of the accessory
+
+    address_type
+        Type of the address: static or random
+    """
+
+    def __init__(self, address: str, address_type: str='static') -> None:
+        self.address = address
+        self.address_type = address_type
+        self.peripheral = bluepy.btle.Peripheral()
+        self._characteristics = {
+        }  # type: Dict[str, bluepy.btle.Characteristic]
+
+    def connect(self) -> None:
+        """Connect to BLE peripheral."""
+        self.peripheral.connect(self.address, self.address_type)
+
+    def charateristic(self, uuid: str) -> bluepy.btle.Characteristic:
+        """Return the GATT characteristic for the given UUID."""
+        if uuid in self._characteristics:
+            characteristic = self.peripheral.getCharacteristics(uuid=uuid)[0]
+            self._characteristics[uuid] = characteristic
+        return self._characteristics[uuid]
 
     def pair(self) -> None:
         pass
@@ -507,3 +555,33 @@ class HapAccessoryLock(HapAccessory):
 
     def motion_detected(self) -> bool:
         pass
+
+
+def reconnect_callback_factory(
+        accessory: HapAccessory) -> Callable[[Any, int], None]:
+    """Factory for creating tenacity before callbacks to reconnect to a peripheral."""
+
+    # pylint: disable=W0613
+    def reconnect(func: Any, trial_number: int) -> None:
+        """Attempt to reconnect."""
+        try:
+            logger.debug("Attempting to reconnect to device.")
+            accessory.connect()
+        except bluepy.btle.BTLEException:
+            logger.debug(
+                "Error while attempting to reconnect to device", exc_info=True)
+
+    return reconnect
+
+
+def reconnect_tenacity_retry(reconnect_callback: Callable[[Any, int], Any],
+                             max_attempts: int=2,
+                             wait_time: int=2) -> tenacity.Retrying:
+    """Build tenacity retry object"""
+    retry = tenacity.retry(
+        stop=tenacity.stop_after_attempt(max_attempts),
+        wait=tenacity.wait_fixed(wait_time),
+        retry=tenacity.retry_if_exception_type(bluepy.btle.BTLEException),
+        before=reconnect_callback)
+
+    return retry
