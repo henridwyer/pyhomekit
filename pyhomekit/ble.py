@@ -108,7 +108,7 @@ class HapBlePduRequestHeader(HapBlePduHeader):
 
     def __str__(self) -> str:
         return super(HapBlePduRequestHeader, self).__str__(
-        ) + "op_code: {}, transaction_id: {}, cid_sid: {}".format(
+        ) + " op_code: {}, transaction_id: {}, cid_sid: {}".format(
             self.op_code, self.transaction_id, self.cid_sid)
 
 
@@ -169,7 +169,7 @@ class HapBlePduResponseHeader(HapBlePduHeader):
     def __str__(self) -> str:
         return super(
             HapBlePduResponseHeader,
-            self).__str__() + "status_code: {}, transaction_id: {}".format(
+            self).__str__() + " status_code: {}, transaction_id: {}".format(
                 constants.HapBleStatusCodes()(self.status_code),
                 self.transaction_id)
 
@@ -240,7 +240,7 @@ class HapCharacteristic:
         logger.debug("HAP read/write request.")
 
         if not body:
-            logger.debug("Writing header to characteristic.")
+            logger.debug("Writing header to characteristic: %s", header.data)
             self.characteristic.write(header.data, withResponse=True)
         else:
             prepared_tlvs = [
@@ -254,10 +254,10 @@ class HapCharacteristic:
 
             # Is a fragmented write necessary?
             if len(header.data) + 2 + len(body_concat) <= max_len:
-                logger.debug("Writing header + data to characteristic.")
-                self.characteristic.write(
-                    header.data + pack('<H', len(body_concat)) + body_concat,
-                    withResponse=True)
+                data = header.data + pack('<H', len(body_concat)) + body_concat
+                logger.debug("Writing header + data to characteristic: %s",
+                             data)
+                self.characteristic.write(data, withResponse=True)
             else:
                 while body:
                     # Fill fragment
@@ -275,14 +275,13 @@ class HapCharacteristic:
                         body[0] = param_type, frag_2
                         fragment_data += utils.prepare_tlv(param_type, frag_1)
 
+                    data = header.data + pack(
+                        '<H', len(fragment_data)) + fragment_data
                     logger.debug(
-                        "Writing header + data to characteristic (fragmented)."
-                    )
+                        "Writing header + data to characteristic (fragmented): %s ",
+                        data)
                     # How many TLV to send
-                    self.characteristic.write(
-                        header.data + pack('<H', len(fragment_data)) +
-                        fragment_data,
-                        withResponse=True)
+                    self.characteristic.write(data, withResponse=True)
 
                     # Future fragments are continuations
                     header.continuation = True
@@ -304,6 +303,7 @@ class HapCharacteristic:
         self._request(request_header, body)
 
         response = self._read()
+        logger.debug("Response data: %s", response)
 
         response_header = self._check_read_response(
             request_header=request_header, response=response)
