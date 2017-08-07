@@ -215,6 +215,12 @@ class HapCharacteristic:
 
     The characteristic is defined by a universally unique type, and has additional
     properties that determine how the value of the characteristic can be accessed.
+
+    Parameters
+    ----------
+    characteristic
+        The underlying GATT characteristic
+
     """
 
     def __init__(self, characteristic: bluepy.btle.Characteristic) -> None:
