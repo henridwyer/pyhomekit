@@ -2,13 +2,17 @@
 
 import logging
 import random
+
+from copy import deepcopy
 from struct import pack, unpack
-from typing import (Any, Callable, Dict, List, Optional, Tuple, Union)  # NOQA pylint: disable=W0611
+from typing import (Any, Callable, Dict, List)  # NOQA pylint: disable=W0611
+from typing import (Tuple, Union, Optional, Iterator)  # NOQA pylint: disable=W0611
 
 import bluepy.btle
 import tenacity
 
-from . import constants, utils
+from . import constants
+from .constants import HAP_param_type_name_to_code
 
 logger = logging.getLogger(__name__)
 
@@ -266,48 +270,10 @@ class HapCharacteristic:
             logger.debug("Writing header to characteristic: %s", header.data)
             self._characteristic.write(header.data, withResponse=True)
         else:
-            prepared_tlvs = [
-                utils.prepare_tlv(param_type, value)
-                for param_type, value in body
-            ]
-
-            body_concat = b''.join(prepared_tlvs)
-
-            max_len = 512
-
-            # Is a fragmented write necessary?
-            if len(header.data) + 2 + len(body_concat) <= max_len:
-                data = header.data + pack('<H', len(body_concat)) + body_concat
+            for data in fragment_tlvs(header, body):
                 logger.debug("Writing header + data to characteristic: %s",
                              data)
                 self._characteristic.write(data, withResponse=True)
-            else:
-                while body:
-                    # Fill fragment
-                    fragment_data = b''
-                    while body and len(fragment_data) + len(
-                            utils.prepare_tlv(*body[0])) < max_len:
-                        fragment_data += utils.prepare_tlv(*body.pop(0))
-
-                    # Split TLV
-                    if body:
-                        param_type, value = body[0]
-                        frag_1, frag_2 = value[:max_len - len(
-                            fragment_data)], value[
-                                max_len - len(fragment_data):]
-                        body[0] = param_type, frag_2
-                        fragment_data += utils.prepare_tlv(param_type, frag_1)
-
-                    data = header.data + pack(
-                        '<H', len(fragment_data)) + fragment_data
-                    logger.debug(
-                        "Writing header + data to characteristic (fragmented): %s ",
-                        data)
-                    # How many TLV to send
-                    self._characteristic.write(data, withResponse=True)
-
-                    # Future fragments are continuations
-                    header.continuation = True
 
     def _read(self) -> bytes:
         """Read the value of the characteristic."""
@@ -426,7 +392,7 @@ class HapCharacteristic:
 
         logger.debug("Parse read response.")
         attributes = {}
-        for body_type, length, bytes_ in utils.iterate_tvl(response[5:]):
+        for body_type, length, bytes_ in iterate_tvl(response[5:]):
             if len(bytes_) != length:
                 raise HapBleError(name="Invalid response length")
             name = constants.HAP_param_type_code_to_name[body_type]
@@ -585,3 +551,71 @@ def reconnect_tenacity_retry(reconnect_callback: Callable[[Any, int], Any],
         before=reconnect_callback)
 
     return retry
+
+
+def iterate_tvl(response: bytes) -> Iterator[Tuple[int, int, bytes]]:
+    """Iterate through response bytes, 1 tlv at a time."""
+    start = 0
+    end = 0
+    while end < len(response):
+        # First byte indidates type
+        body_type = response[start]
+        # Next byte indicates length
+        length = response[start + 1]
+        yield body_type, length, response[start + 2:start + 2 + length]
+        start += 2 + length
+        end += 2 + length
+
+
+def fragment_tlvs(header: HapBlePduRequestHeader,
+                  body: List[Tuple[Union[str, int], bytes]]
+                  ) -> Iterator[bytes]:
+    """Returns the fragmented TLVs to write."""
+    logger.debug("Preparing data for characteristic write: %s", body)
+
+    header = deepcopy(header)  # Avoid modifying original header
+    prepared_tlvs = [
+        prepare_tlv(param_type, value) for param_type, value in body
+    ]
+
+    body_concat = b''.join(prepared_tlvs)
+
+    max_len = 512
+
+    # Is a fragmented write necessary?
+    if len(header.data) + 2 + len(body_concat) <= max_len:
+        data = header.data + pack('<H', len(body_concat)) + body_concat
+        logger.debug("No fragmentation necessary.")
+        yield data
+    else:
+        while body:
+            # Fill fragment
+            logger.debug("Fragmentation necessary.")
+            fragment_data = b''
+            while body and len(fragment_data) + len(
+                    prepare_tlv(*body[0])) < max_len:
+                logger.debug("Add to fragment: %s", body[0])
+                fragment_data += prepare_tlv(*body.pop(0))
+
+            # Split TLV
+            if body:
+                param_type, value = body[0]
+                logger.debug("Splitting TLV for fragment: %s", body[0])
+                frag_1, frag_2 = value[:max_len - len(fragment_data)], value[
+                    max_len - len(fragment_data):]
+                body[0] = param_type, frag_2
+                fragment_data += prepare_tlv(param_type, frag_1)
+
+            data = header.data + pack('<H', len(fragment_data)) + fragment_data
+
+            yield data
+
+            # Future fragments are continuations
+            header.continuation = True
+
+
+def prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
+    """Formats the TLV into the expected format of the PDU."""
+    if isinstance(param_type, str):
+        param_type = HAP_param_type_name_to_code[param_type]
+    return pack('<BB', param_type, len(value)) + value
