@@ -245,6 +245,39 @@ pairing_tlv_name_to_format = {
     'kTLVType_State': 'integer'
 }
 
+pairing_ktlv_method_value_code_to_name = {
+    0: "Reserved",
+    1: "Pair_Setup",
+    2: "Pair_Verify",
+    3: "Add_Pairing",
+    4: "Remove_Pairing",
+    5: "List_Pairings"
+}
+
+pairing_ktlv_error_code_to_name = {
+    0: 'n/a',
+    1: 'kTLVError_Unknown',
+    2: 'kTLVError_Authentication',
+    3: 'kTLVError_Backoff',
+    4: 'kTLVError_MaxPeers',
+    5: 'kTLVError_MaxTries',
+    6: 'kTLVError_Unavailable',
+    7: 'kTLVError_Busy'
+}
+
+
+class PairingKTLVErrorCodes:
+    kTLVError_Unknow = 0x01
+    kTLVError_Authenticatio = 0x02
+    kTLVError_Backof = 0x03
+    kTLVError_MaxPeer = 0x04
+    kTLVError_MaxTrie = 0x05
+    kTLVError_Unavailabl = 0x06
+    kTLVError_Bus = 0x07
+
+    def __call__(self, code: int) -> str:
+        return pairing_ktlv_error_code_to_name[code]
+
 
 class PairingTlvValues:
     """Pairng service TLV Values."""
@@ -264,6 +297,9 @@ class PairingTlvValues:
     kTLVType_FragmentLast = 0x0D
     kTLVType_Separator = 0xFF
 
+    def __call__(self, code: int) -> str:
+        return pairing_tlv_value_to_name[code]
+
 
 class PairingKTLVType_MethodValues:
     """Pairing service kTLV method values"""
@@ -273,6 +309,10 @@ class PairingKTLVType_MethodValues:
     Add_Pairing = 3
     Remove_Pairing = 4
     List_Pairings = 5
+
+    def __call__(self, code: int) -> str:
+        """Return the kTLV Type Method value name."""
+        return pairing_ktlv_method_value_code_to_name[code]
 
 
 class HapBleStatusCodes:
