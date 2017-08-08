@@ -3,7 +3,6 @@
 import logging
 import random
 
-from copy import deepcopy
 from struct import pack, unpack
 from typing import (Any, Callable, Dict, List)  # NOQA pylint: disable=W0611
 from typing import (Tuple, Union, Optional, Iterator)  # NOQA pylint: disable=W0611
@@ -558,7 +557,6 @@ def fragment_tlvs(header: HapBlePduRequestHeader,
     """Returns the fragmented TLVs to write."""
     logger.debug("Preparing data for characteristic write: %s", body)
 
-    header = deepcopy(header)  # Avoid modifying original header
     prepared_tlvs = [
         prepare_tlv(param_type, value) for param_type, value in body
     ]
