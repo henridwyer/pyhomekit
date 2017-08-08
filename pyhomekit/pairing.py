@@ -10,10 +10,14 @@ https://tools.ietf.org/html/rfc2945
 """
 
 from hashlib import sha512
-from typing import Union, Dict, Any  # NOQA pylint: disable=W0611
+from struct import pack
+from typing import Union, Dict, Any, List, Tuple  # NOQA pylint: disable=W0611
 
 import random
 # import libnacl
+
+from . import constants
+from . import utils
 
 # Constants
 N_HEX = """FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -47,7 +51,7 @@ def H(*args: Union[int, bytes, str], sep: bytes=b'', pad: bool=False) -> int:
     byte_args = []
     for arg in args:
         if isinstance(arg, int):
-            arg = arg.to_bytes(-(-arg.bit_length() // 8), 'big')
+            arg = to_bytes(arg, False)
         elif isinstance(arg, str):
             arg = arg.encode('utf-8')
         if pad:
@@ -61,7 +65,63 @@ def random_int(n_bits: int=RANDOM_BITS) -> int:
     return random.SystemRandom().getrandbits(n_bits) % N
 
 
+def to_bytes(value: int, little_endian: bool=True) -> bytes:
+    """Transforms the int into bytes."""
+    if little_endian:
+        order = 'little'
+    else:
+        order = 'big'
+    return value.to_bytes(-(-value.bit_length() // 8), order)
+
+
 k = H(N, g, pad=True)
+
+
+def srp_start_request() -> List[Tuple[int, bytes]]:
+    """Generate the SRP Start request message TLVs.
+
+    The message contains 2 TLVs:
+    - Return_Response: 1
+    - Vale: kTLVs
+
+    With the kTLVs:
+    - kTLVType_State <M1>
+    - kTLVType_Method <Pair Setup>
+    """
+    ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 1)),
+             (constants.PairingKTlvValues.kTLVType_Method, pack(
+                 '<B', constants.PairingKTLVMethodValues.Pair_Setup))]
+
+    prepared_ktlvs = b''.join(utils.prepare_tlv(*ktlv) for ktlv in ktlvs)
+
+    message_data = [(constants.HapParamTypes.Return_Response, pack('<B', 1)),
+                    (constants.HapParamTypes.Value, prepared_ktlvs)]
+
+    return message_data
+
+
+def srp_verify_request(A: int, M1: int) -> List[Tuple[int, bytes]]:
+    """Generate the SRP Verify request message TLVs.
+
+    The message contains 2 TLVs:
+    - Return_Response: 1
+    - Vale: kTLVs
+
+    With the kTLVs:
+    - kTLVType_State <M3>
+    - kTLVType_PublicKey <iOS device's SRP public key> - A
+    - kTLVType_Proof <iOS device's SRP proof> - M1
+    """
+    ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 3)),
+             (constants.PairingKTlvValues.kTLVType_PublicKey, to_bytes(A)),
+             (constants.PairingKTlvValues.kTLVType_Proof, to_bytes(M1))]
+
+    prepared_ktlvs = b''.join(utils.prepare_tlv(*ktlv) for ktlv in ktlvs)
+
+    message_data = [(constants.HapParamTypes.Return_Response, pack('<B', 1)),
+                    (constants.HapParamTypes.Value, prepared_ktlvs)]
+
+    return message_data
 
 
 def pair() -> None:
@@ -109,3 +169,23 @@ def pair() -> None:
     M2_calc = H(A, M1, S)
     if M2_calc != M2:
         raise ValueError("Authentication failed - invalid prood received.")
+
+    # Message 5: Send to accessory
+    # Request Generation
+
+    # kTLVType_State <M5>
+    # kTLVType_EncryptedData <encryptedData with authTag appended>
+
+    # The encrypted data contains
+    # kTLVType_Identifier  <iOSDevicePairingID>
+    # kTLVType_PublicKey <iOSDeviceLTPK>
+    # kTLVType_Signature <iOSDeviceSignature>
+
+    # signing_key, verifying_key = ed25519.create_keypair()
+
+    # # Derive iOSDeviceX
+    # clientX = ''
+    # InputKey = S
+    # Salt = b"Pair-Setup-Controller-Sign-Salt"
+    # Info = b"Pair-Setup-Controller-Sign-Info"
+    # OutputSize = 32

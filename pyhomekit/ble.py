@@ -12,7 +12,7 @@ import bluepy.btle
 import tenacity
 
 from . import constants
-from .constants import HAP_param_type_name_to_code
+from .utils import prepare_tlv, iterate_tvl, HapBleError
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,10 @@ class HapBlePduHeader:
         control_field_str = "{continuation}00000{response}0".format(
             continuation=int(self.continuation), response=int(self.response))
         return control_field_str
+
+    @property
+    def data(self) -> bytes:
+        raise NotImplementedError
 
     def __str__(self) -> str:
         return "continuation: {}, response: {}".format(self.continuation,
@@ -179,40 +183,30 @@ class HapBlePduResponseHeader(HapBlePduHeader):
                 self.transaction_id)
 
 
-class HapBleError(Exception):
-    """HAP Error."""
+class HapBlePdu:
+    """HAP BLE PDU"""
+    max_len = 512
 
     def __init__(self,
-                 status_code: int=None,
-                 name: str=None,
-                 message: str=None,
-                 *args: str) -> None:
-        """HAP Error with appropriate message.
+                 header: HapBlePduHeader,
+                 TLVs: List[Tuple[Union[str, int], bytes]]) -> None:
+        self.header = header
+        self.TLVs = TLVs
 
-        Parameters
-        ----------
-        status_code
-            the status code of the HAP BLE PDU Response.
+    @property
+    def raw_data(self) -> bytes:
+        prepared_tlvs = [
+            prepare_tlv(param_type, value) for param_type, value in self.TLVs
+        ]
 
-        name
-            status code name.
+        return self.header.data + b''.join(prepared_tlvs)
 
-        message
-            status code message.
-        """
-        if status_code is None:
-            self.name = name
-            self.message = message
-        else:
-            self.status_code = status_code
-            self.name = constants.status_code_to_name[status_code]
-            self.message = constants.status_code_to_message[status_code]
+    @property
+    def fragmented(self) -> bool:
+        return len(self.raw_data) > self.max_len
 
-        super(HapBleError, self).__init__(name, message, *args)
-
-    def __str__(self) -> str:
-        """Return formatted error."""
-        return "{}: {}".format(self.name, self.message)
+    def pdu_fragments(self) -> Iterator[bytes]:
+        yield self.raw_data
 
 
 class HapCharacteristic:
@@ -558,20 +552,6 @@ def reconnect_tenacity_retry(reconnect_callback: Callable[[Any, int], Any],
     return retry
 
 
-def iterate_tvl(response: bytes) -> Iterator[Tuple[int, int, bytes]]:
-    """Iterate through response bytes, 1 tlv at a time."""
-    start = 0
-    end = 0
-    while end < len(response):
-        # First byte indidates type
-        body_type = response[start]
-        # Next byte indicates length
-        length = response[start + 1]
-        yield body_type, length, response[start + 2:start + 2 + length]
-        start += 2 + length
-        end += 2 + length
-
-
 def fragment_tlvs(header: HapBlePduRequestHeader,
                   body: List[Tuple[Union[str, int], bytes]]
                   ) -> Iterator[bytes]:
@@ -617,19 +597,3 @@ def fragment_tlvs(header: HapBlePduRequestHeader,
 
             # Future fragments are continuations
             header.continuation = True
-
-
-def prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
-    """Formats the TLV into the expected format of the PDU.
-
-    Parameters
-    ----------
-    param_type
-        The name or code for the HAP Parameter type
-
-    value
-        The value in bytes of the parameter.
-    """
-    if isinstance(param_type, str):
-        param_type = HAP_param_type_name_to_code[param_type]
-    return pack('<BB', param_type, len(value)) + value
