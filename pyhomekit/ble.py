@@ -615,7 +615,16 @@ def fragment_tlvs(header: HapBlePduRequestHeader,
 
 
 def prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
-    """Formats the TLV into the expected format of the PDU."""
+    """Formats the TLV into the expected format of the PDU.
+
+    Parameters
+    ----------
+    param_type
+        The name or code for the HAP Parameter type
+
+    value
+        The value in bytes of the parameter.
+    """
     if isinstance(param_type, str):
         param_type = HAP_param_type_name_to_code[param_type]
     return pack('<BB', param_type, len(value)) + value

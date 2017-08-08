@@ -31,17 +31,16 @@ Connect to a HAP characteristics and view its signature:
 .. code-block:: python
 
     import pyhomekit
-    import bluepy
 
     device_mac = "aa:aa:aa:aa:aa"
 
     characteristic_uuid = "00000000-0000-0000-0000-000000000000"
 
-    device = bluepy.btle.Peripheral()
-    device.connect(device_mac)
+    accessory = pyhomekit.ble.HapAccessory(plug_mac, 'random')
+    accessory.connect()
     bluepy_characteristic = device.getCharacteristics(uuid=characteristic_uuid)[0]
 
-    hap_characteristic = pyhomekit.ble.HapCharacteristic(bluepy_characteristic)
+    hap_characteristic = pyhomekit.ble.HapCharacteristic(accessory=accessory, uuid=characteristic_uuid)
 
     print(hap_characteristic.signature)
 
@@ -88,4 +87,4 @@ And run the tests:
 Requirements
 ############
 
-pyHomeKit is only compatible with python 3.6 for the moment.
+pyHomeKit is only compatible with python 3.5 and 3.6 for the moment.
