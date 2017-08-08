@@ -195,7 +195,9 @@ class HapBlePdu:
     @property
     def raw_data(self) -> bytes:
         prepared_tlvs = [
-            prepare_tlv(param_type, value) for param_type, value in self.TLVs
+            data
+            for param_type, value in self.TLVs
+            for data in prepare_tlv(param_type, value)
         ]
 
         return self.header.data + b''.join(prepared_tlvs)
@@ -552,13 +554,15 @@ def reconnect_tenacity_retry(reconnect_callback: Callable[[Any, int], Any],
 
 
 def fragment_tlvs(header: HapBlePduRequestHeader,
-                  body: List[Tuple[Union[str, int], bytes]]
+                  TLVs: List[Tuple[Union[str, int], bytes]]
                   ) -> Iterator[bytes]:
     """Returns the fragmented TLVs to write."""
-    logger.debug("Preparing data for characteristic write: %s", body)
+    logger.debug("Preparing data for characteristic write: %s", TLVs)
 
     prepared_tlvs = [
-        prepare_tlv(param_type, value) for param_type, value in body
+        data
+        for param_type, value in TLVs
+        for data in prepare_tlv(param_type, value)
     ]
 
     body_concat = b''.join(prepared_tlvs)
@@ -571,23 +575,14 @@ def fragment_tlvs(header: HapBlePduRequestHeader,
         logger.debug("No fragmentation necessary.")
         yield data
     else:
-        while body:
+        logger.debug("Fragmentation necessary. Total len %s", len(body_concat))
+        while prepared_tlvs:
             # Fill fragment
-            logger.debug("Fragmentation necessary.")
             fragment_data = b''
-            while body and len(fragment_data) + len(
-                    prepare_tlv(*body[0])) < max_len:
-                logger.debug("Add to fragment: %s", body[0])
-                fragment_data += prepare_tlv(*body.pop(0))
-
-            # Split TLV
-            if body:
-                param_type, value = body[0]
-                logger.debug("Splitting TLV for fragment: %s", body[0])
-                frag_1, frag_2 = value[:max_len - len(fragment_data)], value[
-                    max_len - len(fragment_data):]
-                body[0] = param_type, frag_2
-                fragment_data += prepare_tlv(param_type, frag_1)
+            while prepared_tlvs and len(fragment_data) + len(
+                    prepared_tlvs[0]) < max_len:
+                logger.debug("Add to fragment: %s", prepared_tlvs[0])
+                fragment_data += prepared_tlvs.pop(0)
 
             data = header.data + pack('<H', len(fragment_data)) + fragment_data
 

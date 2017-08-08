@@ -9,15 +9,21 @@ https://tools.ietf.org/html/rfc5054#ref-SRP-RFC
 https://tools.ietf.org/html/rfc2945
 """
 
+import logging
+import random
 from hashlib import sha512
 from struct import pack
-from typing import Union, Dict, Any, List, Tuple  # NOQA pylint: disable=W0611
+from typing import Any, Dict, List, Tuple, Union  # NOQA pylint: disable=W0611
 
-import random
-# import libnacl
+import cryptography.hazmat
+from libnacl import (crypto_aead_chacha20poly1305_ietf_decrypt,
+                     crypto_aead_chacha20poly1305_ietf_encrypt)
 
-from . import constants
-from . import utils
+import ed25519
+
+from . import constants, utils
+
+logger = logging.getLogger(__name__)
 
 # Constants
 N_HEX = """FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -74,54 +80,229 @@ def to_bytes(value: int, little_endian: bool=True) -> bytes:
     return value.to_bytes(-(-value.bit_length() // 8), order)
 
 
+def from_bytes(value: bytes, little_endian: bool=True) -> int:
+    """Transform bytes representation of int into an int."""
+    value_hex = value.hex()
+    if little_endian:
+        value_hex = value_hex[::-1]
+    return int(value_hex, 16)
+
+
 k = H(N, g, pad=True)
 
 
-def srp_start_request() -> List[Tuple[int, bytes]]:
-    """Generate the SRP Start request message TLVs.
+class SRP:
+    def __init__(self, pairing_id: bytes, setup_code: str=None) -> None:
+        self.N = N
+        self.g = g
+        self.setup_code = setup_code
+        self.pairing_id = pairing_id
 
-    The message contains 2 TLVs:
-    - Return_Response: 1
-    - Vale: kTLVs
+        self.k = H(N, g, pad=True)
+        self.B = 0  # type: int
+        self.s = 0  # type: int
+        self.my_s = 0  # type: int
+        self.x = 0  # type: int
+        self.a = 0  # type: int
+        self.A = 0  # type: int
+        self.u = 0  # type: int
+        self.S = 0  # type: int
+        self.K = 0  # type: int
+        self.M1 = 0  # type: int
+        self.M2 = 0  # type: int
+        self.X = 0  # type: int
+        self.state = 0
+        self.signing_key = b''  # type: bytes
+        self.verifying_key = b''  # type: bytes
+        self.device_info = b''  # type: bytes
+        self.device_signature = b''  # type: bytes
 
-    With the kTLVs:
-    - kTLVType_State <M1>
-    - kTLVType_Method <Pair Setup>
-    """
-    ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 1)),
-             (constants.PairingKTlvValues.kTLVType_Method, pack(
-                 '<B', constants.PairingKTLVMethodValues.Pair_Setup))]
+    @staticmethod
+    def m1_generate_start_request() -> List[Tuple[int, bytes]]:
+        """Generate the SRP Start request message TLVs.
 
-    prepared_ktlvs = b''.join(utils.prepare_tlv(*ktlv) for ktlv in ktlvs)
+        The message contains 2 TLVs:
+        - Return_Response: 1
+        - Vale: kTLVs
 
-    message_data = [(constants.HapParamTypes.Return_Response, pack('<B', 1)),
-                    (constants.HapParamTypes.Value, prepared_ktlvs)]
+        With the kTLVs:
+        - kTLVType_State <M1>
+        - kTLVType_Method <Pair Setup>
+        """
+        ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 1)),
+                 (constants.PairingKTlvValues.kTLVType_Method, pack(
+                     '<B', constants.PairingKTLVMethodValues.Pair_Setup))]
 
-    return message_data
+        prepared_ktlvs = b''.join(
+            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
 
+        message_data = [(constants.HapParamTypes.Return_Response, pack(
+            '<B', 1)), (constants.HapParamTypes.Value, prepared_ktlvs)]
 
-def srp_verify_request(A: int, M1: int) -> List[Tuple[int, bytes]]:
-    """Generate the SRP Verify request message TLVs.
+        return message_data
 
-    The message contains 2 TLVs:
-    - Return_Response: 1
-    - Vale: kTLVs
+    def m2_receive_start_response(self,
+                                  parsed_ktlvs: Dict[str, bytes]) -> None:
+        """Update SRP session with m2 response"""
+        if parsed_ktlvs['kTLVType_State'] != 2:
+            raise ValueError(
+                "Received wrong message for M2 {}".format(parsed_ktlvs))
+        self.B = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
+        self.s = from_bytes(parsed_ktlvs['kTLVType_Salt'])
 
-    With the kTLVs:
-    - kTLVType_State <M3>
-    - kTLVType_PublicKey <iOS device's SRP public key> - A
-    - kTLVType_Proof <iOS device's SRP proof> - M1
-    """
-    ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 3)),
-             (constants.PairingKTlvValues.kTLVType_PublicKey, to_bytes(A)),
-             (constants.PairingKTlvValues.kTLVType_Proof, to_bytes(M1))]
+    def m3_generate_verify_request(
+            self, setup_code: str=None) -> List[Tuple[int, bytes]]:
+        """Generate the SRP Verify request message TLVs.
 
-    prepared_ktlvs = b''.join(utils.prepare_tlv(*ktlv) for ktlv in ktlvs)
+        The message contains 2 TLVs:
+        - Return_Response: 1
+        - Vale: kTLVs
 
-    message_data = [(constants.HapParamTypes.Return_Response, pack('<B', 1)),
-                    (constants.HapParamTypes.Value, prepared_ktlvs)]
+        With the kTLVs:
+        - kTLVType_State <M3>
+        - kTLVType_PublicKey <iOS device's SRP public key> - A
+        - kTLVType_Proof <iOS device's SRP proof> - M1
+        """
+        if self.setup_code is None:
+            self.setup_code = setup_code
+        if self.setup_code is None:
+            raise ValueError("No setup code, cannot proceed with M3")
+        self.my_s = random_int(SALT_BITS)
+        self.x = H(self.my_s, H(USERNAME, self.setup_code, sep=b":"))
+        self.a = random_int(RANDOM_BITS)
+        self.A = pow(self.g, self.a, self.N)
 
-    return message_data
+        self.u = H(self.A, self.B, pad=True)
+        self.S = pow(self.B - (self.k * pow(self.g, self.x, self.N)),
+                     self.a + (self.u * self.x), self.N)
+        self.K = H(self.S)
+        self.M1 = H(self.A, self.B, self.S)
+
+        ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 3)),
+                 (constants.PairingKTlvValues.kTLVType_PublicKey,
+                  to_bytes(self.A)),
+                 (constants.PairingKTlvValues.kTLVType_Proof,
+                  to_bytes(self.M1))]
+
+        prepared_ktlvs = b''.join(
+            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
+
+        message_data = [(constants.HapParamTypes.Return_Response, pack(
+            '<B', 1)), (constants.HapParamTypes.Value, prepared_ktlvs)]
+
+        return message_data
+
+    def m4_receive_verify_response(self,
+                                   parsed_ktlvs: Dict[str, bytes]) -> None:
+        """Verify accessory's proof."""
+        if parsed_ktlvs['kTLVType_State'] != 4:
+            raise ValueError(
+                "Received wrong message for M4 {}".format(parsed_ktlvs))
+        self.M2 = from_bytes(parsed_ktlvs['kTLVType_Proof'])
+
+        M2_calc = H(self.A, self.M1, self.S)
+        if M2_calc != self.M2:
+            raise ValueError("Authentication failed - invalid prood received.")
+
+    def m5_generate_request_generation(self) -> List[Tuple[int, bytes]]:
+        """Generate the Request Generation, as well as signing and encryption keys.
+
+        The message contains 2 TLVs:
+        - Return_Response: 1
+        - Vale: kTLVs
+
+        With the kTLVs:
+        - kTLVType_State <M5>
+        - kTLVType_EncryptedData <encryptedData with authTag appended>
+
+        The encrypted data contains the ktlvs:
+        - kTLVType_Identifier <iOSDevicePairingID>
+        - kTLVType_PublicKey <iOSDeviceLTPK> - verifying_key
+        - kTLVType_Signature <iOSDeviceSignature>
+        """
+        # 1. Generate Ed25519 long-term public key, iOSDeviceLTPK,
+        # and long-term secret key, iOSDeviceLTSK
+        if self.signing_key is None and self.verifying_key is None:
+            signing_key, verifying_key = ed25519.create_keypair()
+            self.signing_key = signing_key.to_bytes()
+            self.verifying_key = verifying_key.to_bytes()
+
+        # 2. Derive iOSDeviceX from the SRP shared secret by using HKDF-SHA-512
+        salt = b"Pair-Setup-Controller-Sign-Salt"
+        info = b"Pair-Setup-Controller-Sign-Info"
+        output_size = 32
+
+        hkdf = cryptography.hazmat.primitives.kdf.hkdf.HKDF(
+            algorithm=cryptography.hazmat.primitives.hashes.SHA512(),
+            length=output_size,
+            salt=salt,
+            info=info,
+            backend=cryptography.hazmat.backends.default_backend())
+        self.X = hkdf.derive(to_bytes(self.S))
+
+        # 3. Concatenate iOSDeviceX with the iOS device's Pairing Identifier, iOSDevicePairingID,
+        # and its long-term public key, iOSDeviceLTPK.
+        # The concatenated value will be referred to as iOSDeviceInfo.
+
+        self.device_info = (
+            to_bytes(self.X) + self.pairing_id + self.verifying_key)
+
+        # 4. Generate iOSDeviceSignature by signing iOSDeviceInfo with its
+        # long-term secret key, iOSDeviceLTSK, using Ed25519.
+
+        self.device_signature = signing_key.Sign(self.device_info)
+
+        # 5. Construct a sub-TLV
+        sub_ktlvs = [(constants.PairingKTlvValues.kTLVType_Identifier,
+                      self.pairing_id),
+                     (constants.PairingKTlvValues.kTLVType_PublicKey,
+                      self.verifying_key),
+                     (constants.PairingKTlvValues.kTLVType_Signature,
+                      self.device_signature)]
+
+        prepared_sub_ktlvs = b''.join(
+            data for ktlv in sub_ktlvs for data in utils.prepare_tlv(*ktlv))
+
+        # 6. Encrypt the sub-TLV, encryptedData, and generate the 16 byte auth tag, authTag.
+        # using the ChaCha20-Poly1305 AEAD algorithm
+
+        # this includes the auth_tag appended at the end
+        encrypted_data = crypto_aead_chacha20poly1305_ietf_encrypt(
+            key=self.S, nonce="PS-Msg05", aad=None, message=prepared_sub_ktlvs)
+
+        ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 5)),
+                 (constants.PairingKTlvValues.kTLVType_EncryptedData,
+                  encrypted_data)]
+
+        # 7. Build request data
+        prepared_ktlvs = b''.join(
+            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
+
+        message_data = [(constants.HapParamTypes.Return_Response, pack(
+            '<B', 5)), (constants.HapParamTypes.Value, prepared_ktlvs)]
+
+        return message_data
+
+    def m6_receive_exchange_response(self,
+                                     parsed_ktlvs: Dict[str, int]) -> None:
+        """Verify accessory and save pairing."""
+        if parsed_ktlvs['kTLVType_State'] != 6:
+            raise ValueError(
+                "Received wrong message for M6 {}".format(parsed_ktlvs))
+
+        decrypted_ktlvs = crypto_aead_chacha20poly1305_ietf_decrypt(
+            parsed_ktlvs['kTLVType_EncryptedData'],
+            nonce=b"PS-Msg06",
+            aad=None,
+            key=self.S)
+
+        parsed_decrypted_ktlvs = utils.parse_ktlvs(decrypted_ktlvs)
+
+        accessory_pairing_id = parsed_decrypted_ktlvs['kTLVType_Identifier']
+        accessory_ltpk = parsed_decrypted_ktlvs['kTLVType_PublicKey']
+        accessory_signature = parsed_decrypted_ktlvs['kTLVType_Signature']
+
+        logger.debug(accessory_pairing_id, accessory_ltpk, accessory_signature)
 
 
 def pair() -> None:

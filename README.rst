@@ -14,10 +14,6 @@ PyHomeKit - HomeKit for Python
 
 PyHomeKit is a set of python libraries that let you control HomeKit compatible accessories, both BLE and HTTP.
 
-For more information about HomeKit, see the `Apple Developper HomeKit <https://developer.apple.com/homekit/>`_ page.
-
-Bluetooth Low Energy device compatibility is provided by `bluepy <https://ianharvey.github.io/bluepy-doc/>`_, which uses bluez.
-
 .. important:: PyHomeKit is currently in pre-alpha. Many features are not yet implemented or broken.
 
 Getting Started
@@ -36,10 +32,8 @@ Connect to a HAP characteristics and view its signature:
 
     characteristic_uuid = "00000000-0000-0000-0000-000000000000"
 
-    accessory = pyhomekit.ble.HapAccessory(plug_mac, 'random')
+    accessory = pyhomekit.ble.HapAccessory(device_mac, 'random')
     accessory.connect()
-    bluepy_characteristic = device.getCharacteristics(uuid=characteristic_uuid)[0]
-
     hap_characteristic = pyhomekit.ble.HapCharacteristic(accessory=accessory, uuid=characteristic_uuid)
 
     print(hap_characteristic.signature)
@@ -84,7 +78,11 @@ And run the tests:
 
     make tests
 
-Requirements
-############
+Links
+#####
 
-pyHomeKit is only compatible with python 3.5 and 3.6 for the moment.
+For more information about HomeKit, see the `Apple Developper HomeKit page <https://developer.apple.com/homekit/>`_.
+
+Bluetooth Low Energy device compatibility is provided by `bluepy <https://github.com/IanHarvey/bluepy>`_.
+
+Encryption is provided by the `libsodium <https://download.libsodium.org/doc/>`_ library.

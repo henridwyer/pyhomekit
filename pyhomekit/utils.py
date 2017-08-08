@@ -1,10 +1,14 @@
 """Utility functions for BLE"""
 
+import logging
+
 from struct import pack
 from typing import (Any, Callable, Dict, List)  # NOQA pylint: disable=W0611
 from typing import (Tuple, Union, Optional, Iterator)  # NOQA pylint: disable=W0611
 
 from . import constants
+
+logger = logging.getLogger(__name__)
 
 
 def iterate_tvl(response: bytes) -> Iterator[Tuple[int, int, bytes]]:
@@ -21,7 +25,7 @@ def iterate_tvl(response: bytes) -> Iterator[Tuple[int, int, bytes]]:
         end += 2 + length
 
 
-def prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
+def prepare_tlv(param_type: Union[str, int], value: bytes) -> Iterator[bytes]:
     """Formats the TLV into the expected format of the PDU.
 
     Parameters
@@ -34,17 +38,24 @@ def prepare_tlv(param_type: Union[str, int], value: bytes) -> bytes:
     """
     if isinstance(param_type, str):
         param_type = constants.HAP_param_type_name_to_code[param_type]
+    while value:
+        fragment = value[:255]
+        yield pack('<BB', param_type, len(fragment)) + fragment
+        value = value[255:]
     return pack('<BB', param_type, len(value)) + value
 
 
 def parse_ktlvs(data: bytes) -> Dict[str, Any]:
     """Parse ktlvs."""
+    logger.debug("Parse ktlvs.")
     attributes = {}  # type: Dict[str, Any]
     for body_type, length, bytes_ in iterate_tvl(data):
         if len(bytes_) != length:
             raise HapBleError(name="Invalid response length")
         name = constants.PairingKTlvValues()(body_type)
         attributes[name] = bytes_
+        logger.debug("TLV found in response. %s: %s", name, bytes_)
+
     return attributes
 
 
