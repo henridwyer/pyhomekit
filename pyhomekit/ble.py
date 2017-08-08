@@ -391,7 +391,7 @@ class HapCharacteristic:
         """Parse read response and set attributes."""
 
         logger.debug("Parse read response.")
-        attributes = {}
+        attributes = {}  # type: Dict[str, Any]
         for body_type, length, bytes_ in iterate_tvl(response[5:]):
             if len(bytes_) != length:
                 raise HapBleError(name="Invalid response length")
@@ -430,8 +430,11 @@ class HapCharacteristic:
             # Add new attributes
             for key, val in new_attrs.items():
                 logger.debug("TLV found in response. %s: %s", key, val)
-                setattr(self, key.lower(), val)
-                attributes[key.lower()] = val
+                key = key.lower()
+                while key in attributes:  # Duplicate key, postpend an index
+                    key = "{}_2".format(key)
+                setattr(self, key, val)
+                attributes[key] = val
 
         return attributes
 

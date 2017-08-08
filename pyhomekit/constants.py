@@ -279,7 +279,7 @@ class PairingKTLVErrorCodes:
         return pairing_ktlv_error_code_to_name[code]
 
 
-class PairingTlvValues:
+class PairingKTlvValues:
     """Pairng service TLV Values."""
     kTLVType_Method = 0x00
     kTLVType_Identifier = 0x01
@@ -301,7 +301,7 @@ class PairingTlvValues:
         return pairing_tlv_value_to_name[code]
 
 
-class PairingKTLVType_MethodValues:
+class PairingKTLVMethodValues:
     """Pairing service kTLV method values"""
     Reserved = 0
     Pair_Setup = 1
