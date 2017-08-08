@@ -433,9 +433,8 @@ class HapCharacteristic:
                 key = key.lower()
                 if key in attributes:
                     logger.debug(
-                        "Duplicate TLV Param Type found: {}. Appending.".
-                        format(key))
-                    val = attributes[val] + val
+                        "Duplicate TLV Param Type found: %s. Appending.", key)
+                    val = attributes[key] + val
                 setattr(self, key, val)
                 attributes[key] = val
 
