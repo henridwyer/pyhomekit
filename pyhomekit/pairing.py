@@ -57,7 +57,7 @@ def H(*args: Union[int, bytes, str], sep: bytes=b'', pad: bool=False) -> int:
     byte_args = []
     for arg in args:
         if isinstance(arg, int):
-            arg = to_bytes(arg, False)
+            arg = to_bytes(arg)
         elif isinstance(arg, str):
             arg = arg.encode('utf-8')
         if pad:
@@ -71,7 +71,7 @@ def random_int(n_bits: int=RANDOM_BITS) -> int:
     return random.SystemRandom().getrandbits(n_bits) % N
 
 
-def to_bytes(value: int, little_endian: bool=True) -> bytes:
+def to_bytes(value: int, little_endian: bool=False) -> bytes:
     """Transforms the int into bytes."""
     if little_endian:
         order = 'little'
@@ -80,7 +80,7 @@ def to_bytes(value: int, little_endian: bool=True) -> bytes:
     return value.to_bytes(-(-value.bit_length() // 8), order)
 
 
-def from_bytes(value: bytes, little_endian: bool=True) -> int:
+def from_bytes(value: bytes, little_endian: bool=False) -> int:
     """Transform bytes representation of int into an int."""
     value_hex = value.hex()
     if little_endian:
@@ -144,7 +144,7 @@ class SRP:
     def m2_receive_start_response(self,
                                   parsed_ktlvs: Dict[str, bytes]) -> None:
         """Update SRP session with m2 response"""
-        if from_bytes(parsed_ktlvs['kTLVType_State'], False) != 2:
+        if from_bytes(parsed_ktlvs['kTLVType_State']) != 2:
             raise ValueError(
                 "Received wrong message for M2 {}".format(parsed_ktlvs))
         self.B = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
