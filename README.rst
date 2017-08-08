@@ -79,7 +79,7 @@ And run the tests:
     make tests
 
 Links
-#####
++++++
 
 For more information about HomeKit, see the `Apple Developper HomeKit page <https://developer.apple.com/homekit/>`_.
 

@@ -144,7 +144,7 @@ class SRP:
     def m2_receive_start_response(self,
                                   parsed_ktlvs: Dict[str, bytes]) -> None:
         """Update SRP session with m2 response"""
-        if parsed_ktlvs['kTLVType_State'] != 2:
+        if from_bytes(parsed_ktlvs['kTLVType_State'], False) != 2:
             raise ValueError(
                 "Received wrong message for M2 {}".format(parsed_ktlvs))
         self.B = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
@@ -177,6 +177,7 @@ class SRP:
                      self.a + (self.u * self.x), self.N)
         self.K = H(self.S)
         self.M1 = H(self.A, self.B, self.S)
+        self.M1 = H(H(N) + H(g), H(USERNAME), s, A, B, K)
 
         ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 3)),
                  (constants.PairingKTlvValues.kTLVType_PublicKey,
