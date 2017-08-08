@@ -431,8 +431,11 @@ class HapCharacteristic:
             for key, val in new_attrs.items():
                 logger.debug("TLV found in response. %s: %s", key, val)
                 key = key.lower()
-                while key in attributes:  # Duplicate key, postpend an index
-                    key = "{}_2".format(key)
+                if key in attributes:
+                    logger.debug(
+                        "Duplicate TLV Param Type found: {}. Appending.".
+                        format(key))
+                    val = attributes[val] + val
                 setattr(self, key, val)
                 attributes[key] = val
 
