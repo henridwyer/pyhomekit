@@ -13,7 +13,7 @@ import logging
 import random
 from hashlib import sha512
 from struct import pack
-from typing import Any, Dict, List, Tuple, Union  # NOQA pylint: disable=W0611
+from typing import Any, Dict, List, Tuple, Union, Optional  # NOQA pylint: disable=W0611
 
 import cryptography.hazmat
 from libnacl import (crypto_aead_chacha20poly1305_ietf_decrypt,
@@ -112,8 +112,8 @@ class SRP:
         self.M2 = 0  # type: int
         self.X = 0  # type: int
         self.state = 0
-        self.signing_key = b''  # type: bytes
-        self.verifying_key = b''  # type: bytes
+        self.signing_key = None  # type: Optional[ed25519.SigningKey]
+        self.verifying_key = None  # type: Optional[ed25519.VerifyingKey]
         self.device_info = b''  # type: bytes
         self.device_signature = b''  # type: bytes
 
@@ -170,8 +170,7 @@ class SRP:
             self.setup_code = setup_code
         if self.setup_code is None:
             raise ValueError("No setup code, cannot proceed with M3")
-        self.my_s = random_int(SALT_BITS)
-        self.x = H(self.my_s, H(USERNAME, self.setup_code, sep=b":"))
+        self.x = H(self.s, H(USERNAME, self.setup_code, sep=b":"))
         self.a = random_int(RANDOM_BITS)
         self.A = pow(self.g, self.a, self.N)
 
@@ -226,9 +225,10 @@ class SRP:
         """
         # 1. Generate Ed25519 long-term public key, iOSDeviceLTPK,
         # and long-term secret key, iOSDeviceLTSK
-        if self.signing_key is None and self.verifying_key is None:
-            self.signing_key, self.verifying_key = ed25519.create_keypair()
+        if self.signing_key is None:
+            self.signing_key, _ = ed25519.create_keypair()
             open("my-secret-key", "wb").write(self.signing_key.to_bytes())
+        self.verifying_key = self.signing_key.get_verifying_key()
 
         # 2. Derive iOSDeviceX from the SRP shared secret by using HKDF-SHA-512
         salt = b"Pair-Setup-Controller-Sign-Salt"
@@ -248,7 +248,7 @@ class SRP:
         # The concatenated value will be referred to as iOSDeviceInfo.
 
         self.device_info = (
-            to_bytes(self.X) + self.pairing_id + self.verifying_key)
+            to_bytes(self.X) + self.pairing_id + self.verifying_key.to_bytes())
 
         # 4. Generate iOSDeviceSignature by signing iOSDeviceInfo with its
         # long-term secret key, iOSDeviceLTSK, using Ed25519.
