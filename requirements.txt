@@ -2,7 +2,7 @@ tenacity
 bluepy
 requests
 libnacl
-srp
+ed25519
 pytest
 pylint
 flake8

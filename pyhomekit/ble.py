@@ -277,14 +277,14 @@ class HapCharacteristic:
 
     def write(self,
               request_header: HapBlePduRequestHeader,
-              body: List[Tuple[Union[str, int], bytes]]) -> Dict[str, Any]:
+              TLVs: List[Tuple[Union[str, int], bytes]]) -> Dict[str, Any]:
         """Perform a HAP Characteristic write.
 
         Fragmented read/write if required."""
         logger.debug("HAP read/write with OpCode: %s.",
                      constants.HapBleOpCodes()(request_header.op_code))
 
-        self._request(request_header, body)
+        self._request(request_header, TLVs)
 
         response = self._read()
         logger.debug("Response data: %s", response)

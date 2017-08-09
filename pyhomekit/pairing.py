@@ -227,9 +227,8 @@ class SRP:
         # 1. Generate Ed25519 long-term public key, iOSDeviceLTPK,
         # and long-term secret key, iOSDeviceLTSK
         if self.signing_key is None and self.verifying_key is None:
-            signing_key, verifying_key = ed25519.create_keypair()
-            self.signing_key = signing_key.to_bytes()
-            self.verifying_key = verifying_key.to_bytes()
+            self.signing_key, self.verifying_key = ed25519.create_keypair()
+            open("my-secret-key", "wb").write(self.signing_key.to_bytes())
 
         # 2. Derive iOSDeviceX from the SRP shared secret by using HKDF-SHA-512
         salt = b"Pair-Setup-Controller-Sign-Salt"
@@ -254,13 +253,13 @@ class SRP:
         # 4. Generate iOSDeviceSignature by signing iOSDeviceInfo with its
         # long-term secret key, iOSDeviceLTSK, using Ed25519.
 
-        self.device_signature = signing_key.Sign(self.device_info)
+        self.device_signature = self.signing_key.sign(self.device_info)
 
         # 5. Construct a sub-TLV
         sub_ktlvs = [(constants.PairingKTlvValues.kTLVType_Identifier,
                       self.pairing_id),
                      (constants.PairingKTlvValues.kTLVType_PublicKey,
-                      self.verifying_key),
+                      self.verifying_key.to_bytes()),
                      (constants.PairingKTlvValues.kTLVType_Signature,
                       self.device_signature)]
 
