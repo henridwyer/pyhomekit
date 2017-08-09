@@ -42,8 +42,6 @@ def prepare_tlv(param_type: Union[str, int], value: bytes) -> Iterator[bytes]:
         fragment = value[:255]
         yield pack('<BB', param_type, len(fragment)) + fragment
         value = value[255:]
-    return pack('<BB', param_type, len(value)) + value
-
 
 def parse_ktlvs(data: bytes) -> Dict[str, Any]:
     """Parse ktlvs."""

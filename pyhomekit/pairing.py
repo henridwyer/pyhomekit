@@ -150,6 +150,9 @@ class SRP:
         self.B = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
         self.s = from_bytes(parsed_ktlvs['kTLVType_Salt'])
 
+        if self.B >= N or self.B <= 0:
+            raise ValueError("Invalid public key received")
+
     def m3_generate_verify_request(
             self, setup_code: str=None) -> List[Tuple[int, bytes]]:
         """Generate the SRP Verify request message TLVs.
@@ -176,8 +179,8 @@ class SRP:
         self.S = pow(self.B - (self.k * pow(self.g, self.x, self.N)),
                      self.a + (self.u * self.x), self.N)
         self.K = H(self.S)
-        self.M1 = H(self.A, self.B, self.S)
-        self.M1 = H(H(N) + H(g), H(USERNAME), s, A, B, K)
+        # self.M1 = H(self.A, self.B, self.S)
+        self.M1 = H(H(N) | H(g), H(USERNAME), self.s, self.A, self.B, self.K)
 
         ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 3)),
                  (constants.PairingKTlvValues.kTLVType_PublicKey,
@@ -201,7 +204,7 @@ class SRP:
                 "Received wrong message for M4 {}".format(parsed_ktlvs))
         self.M2 = from_bytes(parsed_ktlvs['kTLVType_Proof'])
 
-        M2_calc = H(self.A, self.M1, self.S)
+        M2_calc = H(self.A, self.M1, self.K)
         if M2_calc != self.M2:
             raise ValueError("Authentication failed - invalid prood received.")
 
@@ -348,7 +351,7 @@ def pair() -> None:
     parsed_response = {s: K}
     M2 = parsed_response['kTLVType_Proof']
 
-    M2_calc = H(A, M1, S)
+    M2_calc = H(A, M1, K)
     if M2_calc != M2:
         raise ValueError("Authentication failed - invalid prood received.")
 
