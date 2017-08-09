@@ -179,7 +179,7 @@ class SRP:
                      self.a + (self.u * self.x), self.N)
         self.K = H(self.S)
         # self.M1 = H(self.A, self.B, self.S)
-        self.M1 = H(H(N) | H(g), H(USERNAME), self.s, self.A, self.B, self.K)
+        self.M1 = H(H(N) ^ H(g), H(USERNAME), self.s, self.A, self.B, self.K)
 
         ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 3)),
                  (constants.PairingKTlvValues.kTLVType_PublicKey,
