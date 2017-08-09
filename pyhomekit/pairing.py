@@ -10,7 +10,9 @@ https://tools.ietf.org/html/rfc2945
 """
 
 import logging
+import os
 import random
+
 from hashlib import sha512
 from struct import pack
 from typing import Any, Dict, List, Tuple, Union, Optional  # NOQA pylint: disable=W0611
@@ -57,7 +59,7 @@ def H(*args: Union[int, bytes, str], sep: bytes=b'', pad: bool=False) -> int:
     byte_args = []
     for arg in args:
         if isinstance(arg, int):
-            arg = to_bytes(arg)
+            arg = to_bytes(arg, False)
         elif isinstance(arg, str):
             arg = arg.encode('utf-8')
         if pad:
@@ -71,7 +73,7 @@ def random_int(n_bits: int=RANDOM_BITS) -> int:
     return random.SystemRandom().getrandbits(n_bits) % N
 
 
-def to_bytes(value: int, little_endian: bool=False) -> bytes:
+def to_bytes(value: int, little_endian: bool=True) -> bytes:
     """Transforms the int into bytes."""
     if little_endian:
         order = 'little'
@@ -80,7 +82,7 @@ def to_bytes(value: int, little_endian: bool=False) -> bytes:
     return value.to_bytes(-(-value.bit_length() // 8), order)
 
 
-def from_bytes(value: bytes, little_endian: bool=False) -> int:
+def from_bytes(value: bytes, little_endian: bool=True) -> int:
     """Transform bytes representation of int into an int."""
     value_hex = value.hex()
     if little_endian:
@@ -91,14 +93,54 @@ def from_bytes(value: bytes, little_endian: bool=False) -> int:
 k = H(N, g, pad=True)
 
 
-class SRP:
-    def __init__(self, pairing_id: bytes, setup_code: str=None) -> None:
-        self.N = N
-        self.g = g
+def derive_session_key(shared_secret: bytes,
+                       salt: bytes=b"Pair-Setup-Controller-Sign-Salt",
+                       info: bytes=b"Pair-Setup-Controller-Sign-Info",
+                       output_size: int=32) -> bytes:
+    """Derive X from the SRP shared secret by using HKDF-SHA-512."""
+    hkdf = cryptography.hazmat.primitives.kdf.hkdf.HKDF(
+        algorithm=cryptography.hazmat.primitives.hashes.SHA512(),
+        length=output_size,
+        salt=salt,
+        info=info,
+        backend=cryptography.hazmat.backends.default_backend())
+    return hkdf.derive(to_bytes(shared_secret))
+
+
+class SRPPairSetup:
+    """Secure Remote Protocol session for pair setup.
+
+    This class is used to generate messages for pairing using SRP
+    and generates the long term cryptographic keys.
+
+    Parameters
+    ----------
+    pairing_id
+        Unique identifier for the controller. Must be formatted as
+        XX:XX:XX:XX:XX:XX", where "XX" is a hexadecimal string representing a byte.
+
+    setup_code
+        Code for the pairing, Must be formatted as
+        XXX-XX-XXX where each X is a 0-9 digit and dashes are required.
+        This code can be passed when creating the session, or after
+        starting the pairing (for m3).
+
+    storage_folder
+        Folder path to store the pairing keys.
+        This folder should be secure to prevent unauthorized access.
+    """
+
+    def __init__(self,
+                 pairing_id: bytes,
+                 setup_code: str=None,
+                 storage_folder: str=None) -> None:
         self.setup_code = setup_code
         self.pairing_id = pairing_id
+        self.storage_folder = storage_folder
 
-        self.k = H(N, g, pad=True)
+        self.g = g
+        self.N = N
+        self.k = H(self.N, self.g, pad=True)
         self.B = 0  # type: int
         self.s = 0  # type: int
         self.my_s = 0  # type: int
@@ -116,9 +158,12 @@ class SRP:
         self.verifying_key = None  # type: Optional[ed25519.VerifyingKey]
         self.device_info = b''  # type: bytes
         self.device_signature = b''  # type: bytes
+        self.accessory_pairing_id = b''  # type: bytes
+        self.accessory_ltpk = b''  # type: bytes
+        self.accessory_signature = b''  # type: bytes
 
     @staticmethod
-    def m1_generate_start_request() -> List[Tuple[int, bytes]]:
+    def m1_generate_srp_start_request() -> List[Tuple[int, bytes]]:
         """Generate the SRP Start request message TLVs.
 
         The message contains 2 TLVs:
@@ -141,8 +186,8 @@ class SRP:
 
         return message_data
 
-    def m2_receive_start_response(self,
-                                  parsed_ktlvs: Dict[str, bytes]) -> None:
+    def m2_receive_srp_start_response(self,
+                                      parsed_ktlvs: Dict[str, bytes]) -> None:
         """Update SRP session with m2 response"""
         if from_bytes(parsed_ktlvs['kTLVType_State']) != 2:
             raise ValueError(
@@ -153,7 +198,7 @@ class SRP:
         if self.B >= N or self.B <= 0:
             raise ValueError("Invalid public key received")
 
-    def m3_generate_verify_request(
+    def m3_generate_srp_verify_request(
             self, setup_code: str=None) -> List[Tuple[int, bytes]]:
         """Generate the SRP Verify request message TLVs.
 
@@ -195,8 +240,8 @@ class SRP:
 
         return message_data
 
-    def m4_receive_verify_response(self,
-                                   parsed_ktlvs: Dict[str, bytes]) -> None:
+    def m4_receive_srp_verify_response(self,
+                                       parsed_ktlvs: Dict[str, bytes]) -> None:
         """Verify accessory's proof."""
         if parsed_ktlvs['kTLVType_State'] != 4:
             raise ValueError(
@@ -207,7 +252,7 @@ class SRP:
         if M2_calc != self.M2:
             raise ValueError("Authentication failed - invalid prood received.")
 
-    def m5_generate_request_generation(self) -> List[Tuple[int, bytes]]:
+    def m5_generate_exchange_request(self) -> List[Tuple[int, bytes]]:
         """Generate the Request Generation, as well as signing and encryption keys.
 
         The message contains 2 TLVs:
@@ -227,7 +272,9 @@ class SRP:
         # and long-term secret key, iOSDeviceLTSK
         if self.signing_key is None:
             self.signing_key, _ = ed25519.create_keypair()
-            open("my-secret-key", "wb").write(self.signing_key.to_bytes())
+            with open(os.path.join(self.storage_folder, "secret-key"),
+                      "wb") as secret_key_file:
+                secret_key_file.write(self.signing_key.to_bytes())
         self.verifying_key = self.signing_key.get_verifying_key()
 
         # 2. Derive iOSDeviceX from the SRP shared secret by using HKDF-SHA-512
@@ -301,11 +348,101 @@ class SRP:
 
         parsed_decrypted_ktlvs = utils.parse_ktlvs(decrypted_ktlvs)
 
-        accessory_pairing_id = parsed_decrypted_ktlvs['kTLVType_Identifier']
-        accessory_ltpk = parsed_decrypted_ktlvs['kTLVType_PublicKey']
-        accessory_signature = parsed_decrypted_ktlvs['kTLVType_Signature']
+        self.accessory_pairing_id = parsed_decrypted_ktlvs[
+            'kTLVType_Identifier']
+        self.accessory_ltpk = parsed_decrypted_ktlvs['kTLVType_PublicKey']
+        self.accessory_signature = parsed_decrypted_ktlvs['kTLVType_Signature']
 
-        logger.debug(accessory_pairing_id, accessory_ltpk, accessory_signature)
+        with open(
+                os.path.join(self.storage_folder, "accessory_pairing_id"),
+                "wb") as accessory_pairing_id_file:
+            accessory_pairing_id_file.write(self.accessory_pairing_id)
+        with open(os.path.join(self.storage_folder, "accessory_ltpk"),
+                  "wb") as accessory_ltpk_file:
+            accessory_ltpk_file.write(self.accessory_ltpk)
+
+        logger.debug(
+            "Successfully saved accessory pairing id and accessory long term public key"
+        )
+
+
+class SRPPairVerify:
+    """Secure Remote Protocol session for pair verify.
+
+    You must already have paired with an accessory.
+
+    Parameters
+    ----------
+    pairing_id
+        Unique identifier for the controller. Must be formatted as
+        XX:XX:XX:XX:XX:XX", where "XX" is a hexadecimal string representing a byte.
+
+    setup_code
+        Code for the pairing, Must be formatted as
+        XXX-XX-XXX where each X is a 0-9 digit and dashes are required.
+        This code can be passed when creating the session, or after
+        starting the pairing (for m3).
+
+    storage_folder
+        Folder path to store the pairing keys.
+        This folder should be secure to prevent unauthorized access.
+    """
+
+    def __init__(self,
+                 pairing_id: bytes,
+                 setup_code: str=None,
+                 storage_folder: str=None) -> None:
+        self.setup_code = setup_code
+        self.pairing_id = pairing_id
+        self.storage_folder = storage_folder
+
+        self.signing_key = None  # type: Optional[ed25519.SigningKey]
+        self.verifying_key = None  # type: Optional[ed25519.VerifyingKey]
+        self.device_info = b''  # type: bytes
+        self.device_signature = b''  # type: bytes
+        self.accessory_pairing_id = b''  # type: bytes
+        self.accessory_ltpk = b''  # type: bytes
+        self.accessory_signature = b''  # type: bytes
+
+    def m1_generate_verify_start_request(self) -> List[Tuple[int, bytes]]:
+        """Generate the SRP Start request message TLVs.
+
+        The message contains 2 TLVs:
+        - Return_Response: 1
+        - Vale: kTLVs
+
+        With the kTLVs:
+        - kTLVType_State <M1>
+        - kTLVType_PublicKey <Curve25519 public key>
+        """
+        with open(os.path.join(self.storage_folder, "secret-key"),
+                  "rb") as secret_key_file:
+            self.secret_key = ed25519.SigningKey(secret_key_file.read())
+        self.verifying_key = self.secret_key.get_verifying_key()
+
+        ktlvs = [(constants.PairingKTlvValues.kTLVType_State, pack('<B', 1)),
+                 (constants.PairingKTlvValues.kTLVType_PublicKey,
+                  self.verifying_key.to_bytes())]
+
+        prepared_ktlvs = b''.join(
+            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
+
+        message_data = [(constants.HapParamTypes.Return_Response, pack(
+            '<B', 1)), (constants.HapParamTypes.Value, prepared_ktlvs)]
+
+        return message_data
+
+    def m2_receive_start_response(self,
+                                  parsed_ktlvs: Dict[str, bytes]) -> None:
+        """Update SRP session with m2 response"""
+        if from_bytes(parsed_ktlvs['kTLVType_State']) != 2:
+            raise ValueError(
+                "Received wrong message for M2 {}".format(parsed_ktlvs))
+        proof = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
+        encrypted_data = from_bytes(parsed_ktlvs['kTLVType_EncryptedData'])
+
+        if proof == encrypted_data:
+            print("")
 
 
 def pair() -> None:
