@@ -73,7 +73,7 @@ def random_int(n_bits: int=RANDOM_BITS) -> int:
     return random.SystemRandom().getrandbits(n_bits) % N
 
 
-def to_bytes(value: int, little_endian: bool=True) -> bytes:
+def to_bytes(value: int, little_endian: bool=False) -> bytes:
     """Transforms the int into bytes."""
     if little_endian:
         order = 'little'
@@ -82,12 +82,13 @@ def to_bytes(value: int, little_endian: bool=True) -> bytes:
     return value.to_bytes(-(-value.bit_length() // 8), order)
 
 
-def from_bytes(value: bytes, little_endian: bool=True) -> int:
-    """Transform bytes representation of int into an int."""
-    value_hex = value.hex()
+def from_bytes(value: bytes, little_endian: bool=False) -> int:
+    """Transform bytes representation of an int into an int."""
     if little_endian:
-        value_hex = value_hex[::-1]
-    return int(value_hex, 16)
+        order = 'little'
+    else:
+        order = 'big'
+    return int.from_bytes(value, order)
 
 
 k = H(N, g, pad=True)
@@ -189,7 +190,7 @@ class SRPPairSetup:
     def m2_receive_srp_start_response(self,
                                       parsed_ktlvs: Dict[str, bytes]) -> None:
         """Update SRP session with m2 response"""
-        if from_bytes(parsed_ktlvs['kTLVType_State']) != 2:
+        if from_bytes(parsed_ktlvs['kTLVType_State'], False) != 2:
             raise ValueError(
                 "Received wrong message for M2 {}".format(parsed_ktlvs))
         self.B = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
@@ -243,7 +244,7 @@ class SRPPairSetup:
     def m4_receive_srp_verify_response(self,
                                        parsed_ktlvs: Dict[str, bytes]) -> None:
         """Verify accessory's proof."""
-        if parsed_ktlvs['kTLVType_State'] != 4:
+        if from_bytes(parsed_ktlvs['kTLVType_State'], False) != 4:
             raise ValueError(
                 "Received wrong message for M4 {}".format(parsed_ktlvs))
         self.M2 = from_bytes(parsed_ktlvs['kTLVType_Proof'])
@@ -396,7 +397,7 @@ class SRPPairVerify:
         self.pairing_id = pairing_id
         self.storage_folder = storage_folder
 
-        self.signing_key = None  # type: Optional[ed25519.SigningKey]
+        self.secret_key = None  # type: Optional[ed25519.SigningKey]
         self.verifying_key = None  # type: Optional[ed25519.VerifyingKey]
         self.device_info = b''  # type: bytes
         self.device_signature = b''  # type: bytes
@@ -432,8 +433,8 @@ class SRPPairVerify:
 
         return message_data
 
-    def m2_receive_start_response(self,
-                                  parsed_ktlvs: Dict[str, bytes]) -> None:
+    @staticmethod
+    def m2_receive_start_response(parsed_ktlvs: Dict[str, bytes]) -> None:
         """Update SRP session with m2 response"""
         if from_bytes(parsed_ktlvs['kTLVType_State']) != 2:
             raise ValueError(

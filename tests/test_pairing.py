@@ -108,3 +108,4 @@ def test_SRP_test_vectors():
     assert S_calc == S
     K_calc = H(S)
     assert K_calc == K
+    M1 = H(H(N) ^ H(g), H(test_username), s, A, B, K)
