@@ -105,7 +105,7 @@ def derive_session_key(shared_secret: bytes,
         salt=salt,
         info=info,
         backend=cryptography.hazmat.backends.default_backend())
-    return hkdf.derive(to_bytes(shared_secret))
+    return hkdf.derive(shared_secret)
 
 
 class SRPPairSetup:
@@ -131,10 +131,11 @@ class SRPPairSetup:
         This folder should be secure to prevent unauthorized access.
     """
 
-    def __init__(self,
-                 pairing_id: bytes,
-                 setup_code: str=None,
-                 storage_folder: str=None) -> None:
+    def __init__(
+            self,
+            pairing_id: bytes,
+            storage_folder: str,
+            setup_code: str=None, ) -> None:
         self.setup_code = setup_code
         self.pairing_id = pairing_id
         self.storage_folder = storage_folder
@@ -196,7 +197,7 @@ class SRPPairSetup:
         self.B = from_bytes(parsed_ktlvs['kTLVType_PublicKey'])
         self.s = from_bytes(parsed_ktlvs['kTLVType_Salt'])
 
-        if self.B >= N or self.B <= 0:
+        if self.B >= N:
             raise ValueError("Invalid public key received")
 
     def m3_generate_srp_verify_request(
@@ -389,10 +390,11 @@ class SRPPairVerify:
         This folder should be secure to prevent unauthorized access.
     """
 
-    def __init__(self,
-                 pairing_id: bytes,
-                 setup_code: str=None,
-                 storage_folder: str=None) -> None:
+    def __init__(
+            self,
+            pairing_id: bytes,
+            storage_folder: str,
+            setup_code: str=None, ) -> None:
         self.setup_code = setup_code
         self.pairing_id = pairing_id
         self.storage_folder = storage_folder

@@ -52,6 +52,9 @@ def parse_ktlvs(data: bytes) -> Dict[str, Any]:
         if len(bytes_) != length:
             raise HapBleError(name="Invalid response length")
         name = constants.PairingKTlvValues()(body_type)
+        if name in attributes:
+            logger.debug("Duplicate kTLV Value found: %s. Appending.", name)
+            bytes_ = attributes[name] + bytes_
         attributes[name] = bytes_
         logger.debug("TLV found in response. %s: %s", name, bytes_)
 
