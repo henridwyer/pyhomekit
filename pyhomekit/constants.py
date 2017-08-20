@@ -144,6 +144,29 @@ HAP_param_type_name_to_code = {
     "HAP_Valid_Values_Range_Descriptor": 18
 }
 
+HAP_param_code_to_converter = {
+    1: identity,
+    2: identity,
+    3: identity,
+    4: to_uuid,
+    5: to_uuid,
+    # DC46F0FE-81D2-4616-B5D9-6ABDD796939A
+    6: to_uuid,
+    7: to_uint16,
+    # E604E95D-A759-4817-87D3-AA005083A0D1
+    8: identity,
+    9: identity,
+    10: to_uint16,
+    11: to_utf8,
+    12: parse_format,
+    13: identity,
+    14: identity,
+    15: to_uint16,
+    16: identity,
+    17: identity,
+    18: identity
+}  # type: Dict[int, Any]
+
 HAP_param_name_to_converter = {
     "Value": identity,
     "Additional_Authorization_Data": identity,

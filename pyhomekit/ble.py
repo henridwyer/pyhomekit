@@ -11,7 +11,7 @@ import bluepy.btle
 import tenacity
 
 from . import constants
-from .utils import prepare_tlv, iterate_tvl, HapBleError
+from .utils import prepare_tlv, iterate_tvl, HapBleError, parse_ktlvs
 
 logger = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ class HapCharacteristic:
 
     def _request(self,
                  header: HapBlePduRequestHeader,
-                 body: List[Tuple[Union[str, int], bytes]]=None) -> None:
+                 body: List[Tuple[int, bytes]]=None) -> None:
         """Perform a HAP read or write request."""
         logger.debug("HAP read/write request.")
 
@@ -277,7 +277,7 @@ class HapCharacteristic:
 
     def write(self,
               request_header: HapBlePduRequestHeader,
-              TLVs: List[Tuple[Union[str, int], bytes]]) -> Dict[str, Any]:
+              TLVs: List[Tuple[int, bytes]]) -> Dict[str, Any]:
         """Perform a HAP Characteristic write.
 
         Fragmented read/write if required."""
@@ -291,16 +291,56 @@ class HapCharacteristic:
 
         response_header = self._check_read_response(
             request_header=request_header, response=response)
-
         logger.debug("Response header: %s", response_header)
+        response_parsed = self._parse_response(response)
 
         if response_header.continuation:
             # TODO: fragmented read
             raise NotImplementedError("Fragmented read not yet supported")
 
-        response_parsed = self._parse_response(response)
-
         return response_parsed
+
+    def write_ktlvs(self,
+                    request_header: HapBlePduRequestHeader,
+                    kTLVs: List[Tuple[int, bytes]]) -> Dict[str, Any]:
+        """Perform a HAP Characteristic write for a pairing.
+
+        Fragmented read/write if required."""
+        logger.debug("HAP write pairing with OpCode: %s.",
+                     constants.HapBleOpCodes()(request_header.op_code))
+
+        assembled = {}  # type: Dict[str, Any]
+
+        while True:
+            prepared_ktlvs = b''.join(
+                data for ktlv in kTLVs for data in prepare_tlv(*ktlv))
+
+            TLVs = [(constants.HapParamTypes.Return_Response, pack('<B', 1)),
+                    (constants.HapParamTypes.Value, prepared_ktlvs)]
+
+            response_parsed = self.write(request_header, TLVs)
+            if 'value' not in response_parsed:
+                raise HapBleError(
+                    name="Pairing Error", message="No ktlvs received")
+
+            parsed_ktlvs = parse_ktlvs(response_parsed['value'])
+
+            # Check fragmentation
+            if 'kTLVType_FragmentData' in parsed_ktlvs:
+                assembled['kTLVType_FragmentData'] = assembled.get(
+                    'kTLVType_FragmentData',
+                    b'') + parsed_ktlvs['kTLVType_FragmentData']
+                # send new ktlv fragmentdata empty
+                kTLVs = [(constants.PairingKTlvValues.kTLVType_FragmentData,
+                          b'')]
+            elif 'kTLVType_FragmentLast' in parsed_ktlvs:
+                assembled['kTLVType_FragmentData'] = (
+                    assembled['kTLVType_FragmentData'] +
+                    parsed_ktlvs['kTLVType_FragmentLast'])
+                break
+            else:
+                return parsed_ktlvs
+        return assembled
 
     def read(self, request_header: HapBlePduRequestHeader) -> Dict[str, Any]:
         """Perform a HAP Characteristic read.
@@ -554,8 +594,7 @@ def reconnect_tenacity_retry(reconnect_callback: Callable[[Any, int], Any],
 
 
 def fragment_tlvs(header: HapBlePduRequestHeader,
-                  TLVs: List[Tuple[Union[str, int], bytes]]
-                  ) -> Iterator[bytes]:
+                  TLVs: List[Tuple[int, bytes]]) -> Iterator[bytes]:
     """Returns the fragmented TLVs to write."""
     logger.debug("Preparing data for characteristic write: %s", TLVs)
 

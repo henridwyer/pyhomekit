@@ -259,7 +259,7 @@ class SRPPairSetup:
 
         The message contains 2 TLVs:
         - Return_Response: 1
-        - Vale: kTLVs
+        - Value: kTLVs
 
         With the kTLVs:
         - kTLVType_State <M5>
