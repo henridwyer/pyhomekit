@@ -1,6 +1,7 @@
 tenacity
 bluepy
 requests
+cryptography
 libnacl
 ed25519
 pytest

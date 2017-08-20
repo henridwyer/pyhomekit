@@ -16,7 +16,7 @@ here = path.abspath(path.dirname(__file__))
 with open_(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-install_requires = ['bluepy', 'libnacl', 'ed25519', 'tenacity']
+install_requires = ['bluepy', 'libnacl', 'ed25519', 'cryptography', 'tenacity']
 
 setup(
     name=PACKAGE,

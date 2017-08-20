@@ -14,6 +14,7 @@ import os
 import random
 
 from hashlib import sha512
+from hmac import compare_digest
 from struct import pack
 from typing import Any, Dict, List, Tuple, Union, Optional  # NOQA pylint: disable=W0611
 
@@ -180,13 +181,7 @@ class SRPPairSetup:
                  (constants.PairingKTlvValues.kTLVType_Method, pack(
                      '<B', constants.PairingKTLVMethodValues.Pair_Setup))]
 
-        prepared_ktlvs = b''.join(
-            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
-
-        message_data = [(constants.HapParamTypes.Return_Response, pack(
-            '<B', 1)), (constants.HapParamTypes.Value, prepared_ktlvs)]
-
-        return message_data
+        return ktlvs
 
     def m2_receive_srp_start_response(self,
                                       parsed_ktlvs: Dict[str, bytes]) -> None:
@@ -234,13 +229,7 @@ class SRPPairSetup:
                  (constants.PairingKTlvValues.kTLVType_Proof,
                   to_bytes(self.M1))]
 
-        prepared_ktlvs = b''.join(
-            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
-
-        message_data = [(constants.HapParamTypes.Return_Response, pack(
-            '<B', 1)), (constants.HapParamTypes.Value, prepared_ktlvs)]
-
-        return message_data
+        return ktlvs
 
     def m4_receive_srp_verify_response(self,
                                        parsed_ktlvs: Dict[str, bytes]) -> None:
@@ -251,7 +240,8 @@ class SRPPairSetup:
         self.M2 = from_bytes(parsed_ktlvs['kTLVType_Proof'])
 
         M2_calc = H(self.A, self.M1, self.K)
-        if M2_calc != self.M2:
+        if not compare_digest(
+                to_bytes(M2_calc), parsed_ktlvs['kTLVType_Proof']):
             raise ValueError("Authentication failed - invalid prood received.")
 
     def m5_generate_exchange_request(self) -> List[Tuple[int, bytes]]:
@@ -326,14 +316,7 @@ class SRPPairSetup:
                  (constants.PairingKTlvValues.kTLVType_EncryptedData,
                   encrypted_data)]
 
-        # 7. Build request data
-        prepared_ktlvs = b''.join(
-            data for ktlv in ktlvs for data in utils.prepare_tlv(*ktlv))
-
-        message_data = [(constants.HapParamTypes.Return_Response, pack(
-            '<B', 5)), (constants.HapParamTypes.Value, prepared_ktlvs)]
-
-        return message_data
+        return ktlvs
 
     def m6_receive_exchange_response(self,
                                      parsed_ktlvs: Dict[str, int]) -> None:

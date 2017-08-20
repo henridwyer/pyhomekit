@@ -4,7 +4,7 @@ import logging
 import random
 
 from struct import pack, unpack
-from typing import (Any, Callable, Dict, List)  # NOQA pylint: disable=W0611
+from typing import (Any, Callable, Dict, List, Sequence)  # NOQA pylint: disable=W0611
 from typing import (Tuple, Union, Optional, Iterator)  # NOQA pylint: disable=W0611
 
 import bluepy.btle
@@ -302,7 +302,7 @@ class HapCharacteristic:
 
     def write_ktlvs(self,
                     request_header: HapBlePduRequestHeader,
-                    kTLVs: List[Tuple[int, bytes]]) -> Dict[str, Any]:
+                    kTLVs: Sequence[Tuple[int, bytes]]) -> Dict[str, Any]:
         """Perform a HAP Characteristic write for a pairing.
 
         Fragmented read/write if required."""
