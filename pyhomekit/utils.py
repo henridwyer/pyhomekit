@@ -25,7 +25,7 @@ def iterate_tvl(response: bytes) -> Iterator[Tuple[int, int, bytes]]:
         end += 2 + length
 
 
-def prepare_tlv(param_type: Union[str, int], value: bytes) -> Iterator[bytes]:
+def prepare_tlv(param_type: int, value: bytes) -> Iterator[bytes]:
     """Formats the TLV into the expected format of the PDU.
 
     Parameters
@@ -36,9 +36,9 @@ def prepare_tlv(param_type: Union[str, int], value: bytes) -> Iterator[bytes]:
     value
         The value in bytes of the parameter.
     """
-    if isinstance(param_type, str):
-        param_type = constants.HAP_param_type_name_to_code[param_type]
-    while value:
+    first = True  # should yield something even when value is empty
+    while value or first:
+        first = False
         fragment = value[:255]
         yield pack('<BB', param_type, len(fragment)) + fragment
         value = value[255:]

@@ -188,7 +188,7 @@ class HapBlePdu:
 
     def __init__(self,
                  header: HapBlePduHeader,
-                 TLVs: List[Tuple[Union[str, int], bytes]]) -> None:
+                 TLVs: Sequence[Tuple[int, bytes]]) -> None:
         self.header = header
         self.TLVs = TLVs
 
@@ -311,13 +311,14 @@ class HapCharacteristic:
 
         assembled = {}  # type: Dict[str, Any]
 
+        TLVs = [(constants.HapParamTypes.Return_Response, pack('<B', 1))]
+
         while True:
             logger.debug("Preparing message with kTLVs: %s", kTLVs)
             prepared_ktlvs = b''.join(
                 data for ktlv in kTLVs for data in prepare_tlv(*ktlv))
 
-            TLVs = [(constants.HapParamTypes.Return_Response, pack('<B', 1)),
-                    (constants.HapParamTypes.Value, prepared_ktlvs)]
+            TLVs.append((constants.HapParamTypes.Value, prepared_ktlvs))
 
             response_parsed = self.write(request_header, TLVs)
             if 'value' not in response_parsed:
@@ -333,6 +334,7 @@ class HapCharacteristic:
                     'kTLVType_FragmentData',
                     b'') + parsed_ktlvs['kTLVType_FragmentData']
                 # send new ktlv fragmentdata empty
+                TLVs = []
                 kTLVs = [(constants.PairingKTlvValues.kTLVType_FragmentData,
                           b'')]
             elif 'kTLVType_FragmentLast' in parsed_ktlvs:
