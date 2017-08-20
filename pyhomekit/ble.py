@@ -312,6 +312,7 @@ class HapCharacteristic:
         assembled = {}  # type: Dict[str, Any]
 
         while True:
+            logger.debug("Preparing message with kTLVs: %s", kTLVs)
             prepared_ktlvs = b''.join(
                 data for ktlv in kTLVs for data in prepare_tlv(*ktlv))
 
@@ -327,6 +328,7 @@ class HapCharacteristic:
 
             # Check fragmentation
             if 'kTLVType_FragmentData' in parsed_ktlvs:
+                logger.debug("Found kTLV FragmentData - appending")
                 assembled['kTLVType_FragmentData'] = assembled.get(
                     'kTLVType_FragmentData',
                     b'') + parsed_ktlvs['kTLVType_FragmentData']
@@ -334,12 +336,16 @@ class HapCharacteristic:
                 kTLVs = [(constants.PairingKTlvValues.kTLVType_FragmentData,
                           b'')]
             elif 'kTLVType_FragmentLast' in parsed_ktlvs:
+                logger.debug(
+                    "Found kTLV FragmentLast - appending final fragment")
                 assembled['kTLVType_FragmentData'] = (
                     assembled['kTLVType_FragmentData'] +
                     parsed_ktlvs['kTLVType_FragmentLast'])
                 break
             else:
-                return parsed_ktlvs
+                logger.debug("Unfragmented kTLVS - returning parsed data.")
+                assembled = parsed_ktlvs
+                break
         return assembled
 
     def read(self, request_header: HapBlePduRequestHeader) -> Dict[str, Any]:
