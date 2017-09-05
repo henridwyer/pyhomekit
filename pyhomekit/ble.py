@@ -341,6 +341,8 @@ class HapCharacteristic:
                 assembled['kTLVType_FragmentData'] = (
                     assembled['kTLVType_FragmentData'] +
                     parsed_ktlvs['kTLVType_FragmentLast'])
+                # This is the last part of the fragment. Now parse the contents and return
+                assembled = parse_ktlvs(assembled['kTLVType_FragmentData'])
                 break
             else:
                 logger.debug("Unfragmented kTLVS - returning parsed data.")

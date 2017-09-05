@@ -287,7 +287,8 @@ class SRPPairSetup:
         # The concatenated value will be referred to as iOSDeviceInfo.
 
         self.device_info = (
-            to_bytes(self.X) + self.pairing_id + self.verifying_key.to_bytes())
+            to_bytes(self.X) + session.pairing_id.encode('utf-8') +
+            self.verifying_key.to_bytes())
 
         # 4. Generate iOSDeviceSignature by signing iOSDeviceInfo with its
         # long-term secret key, iOSDeviceLTSK, using Ed25519.
