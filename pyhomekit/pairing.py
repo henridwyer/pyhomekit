@@ -280,7 +280,7 @@ class SRPPairSetup:
             salt=salt,
             info=info,
             backend=cryptography.hazmat.backends.default_backend())
-        self.X = hkdf.derive(to_bytes(self.S))
+        self.X = hkdf.derive(to_bytes(self.K))
 
         # 3. Concatenate iOSDeviceX with the iOS device's Pairing Identifier, iOSDevicePairingID,
         # and its long-term public key, iOSDeviceLTPK.
