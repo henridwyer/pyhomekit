@@ -81,7 +81,7 @@ And run the tests:
 Links
 +++++
 
-For more information about HomeKit, see the `Apple Developper HomeKit page <https://developer.apple.com/homekit/>`_.
+For more information about HomeKit, see the `Apple Developer HomeKit page <https://developer.apple.com/homekit/>`_.
 
 Bluetooth Low Energy device compatibility is provided by `bluepy <https://github.com/IanHarvey/bluepy>`_.
 
